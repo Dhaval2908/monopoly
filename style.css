@@ -1,0 +1,249 @@
+:root {
+    --board-size: min(92vh, 850px); /* Fits screen without scrolling */
+    --clr-mumbai: #00d2d3; --clr-delhi: #1dd1a1; --clr-bengaluru: #feca57;
+    --clr-chennai: #ff9f43; --clr-kolkata: #ff9ff3; --clr-pune: #ff6b6b;
+    --clr-transport: #576574; --clr-utility: #48dbfb;
+    --clr-luck: linear-gradient(135deg, #a29bfe, #6c5ce7);
+}
+
+body {
+    background: radial-gradient(circle at center, #2c3e50 0%, #000 100%);
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0; font-family: 'Arial Black', sans-serif;
+    overflow: hidden; /* No scrolling */
+}
+
+#game-board {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    grid-template-rows: repeat(11, 1fr);
+    width: var(--board-size); height: var(--board-size);
+    background: #fff; border: 8px solid #222;
+    position: relative; box-shadow: 0 40px 100px rgba(0,0,0,0.8);
+    background-image: url('https://www.transparenttextures.com/patterns/natural-paper.png');
+}
+
+.center-piece {
+    grid-column: 2 / 11; grid-row: 2 / 11;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(12px);
+    border: 2px solid rgba(255,255,255,0.1);
+    margin: 5px; border-radius: 15px;
+}
+
+.logo {
+    font-size: clamp(30px, 6vh, 60px); 
+    color: #ff4d4d; 
+    font-weight: 900;
+    margin-bottom: 30px;
+    filter: drop-shadow(4px 4px 0px #222);
+    animation: playfulWobble 2s infinite ease-in-out;
+    display: inline-block;
+}
+
+@keyframes playfulWobble {
+    0% { transform: scale(1) rotate(-2deg); }
+    25% { transform: scale(1.1, 0.9) rotate(3deg); } /* Squish */
+    50% { transform: scale(0.9, 1.1) rotate(-3deg); } /* Stretch */
+    75% { transform: scale(1.05, 0.95) rotate(2deg); }
+    100% { transform: scale(1) rotate(-2deg); }
+}
+/* SPACE CARDS */
+.space {
+    width: 100%; height: 100%; display: flex; flex-direction: column;
+    background: white; border: 1px solid #000;
+    box-sizing: border-box; position: relative; overflow: hidden;
+}
+
+.header-bar { width: 100%; height: 25%; border-bottom: 1px solid #000; }
+
+.space-info {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: space-between; height: 75%; padding: 2px;
+}
+
+.space-name { 
+    font-size: 8px; font-weight: bold; text-align: center; 
+    text-transform: uppercase; line-height: 1; margin-top: 2px;
+}
+
+.space-icon { font-size: 16px; }
+.space-price { font-size: 9px; font-weight: 900; padding-bottom: 2px; }
+
+/* DICE DOTS FIX */
+.dice-area{
+    display: flex;
+    flex-direction: row; /* Horizontal */
+    justify-content: center;
+    align-items: center;
+    gap: 15px;           /* 15px space between dice */
+    margin: 20px auto;
+    perspective: 1000px; /* Gives depth to the 3D rotation */
+}
+.scene { width: 60px; height: 60px; perspective: 600px; }
+.cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; }
+.face {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: #fff;
+    border: 2px solid #333;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 5px;
+    box-sizing: border-box;
+    
+    /* FIX: This stops dots from other sides showing through */
+    backface-visibility: hidden; 
+    /* Ensures the face stays crisp during rotation */
+    transform-style: preserve-3d;
+}
+
+/* We must push each face out from the center by 30px (half of 60px) */
+.front  { transform: rotateY(0deg) translateZ(30px); }
+.back   { transform: rotateY(180deg) translateZ(30px); }
+.right  { transform: rotateY(90deg) translateZ(30px); }
+.left   { transform: rotateY(-90deg) translateZ(30px); }
+.top    { transform: rotateX(90deg) translateZ(30px); }
+.bottom { transform: rotateX(-90deg) translateZ(30px); }
+
+.dot { background: #000; border-radius: 50%; width: 10px; height: 10px; margin: auto; }
+
+
+/* PLAYER TOKENS */
+.player {
+    width: 35px; height: 35px; position: absolute;
+    z-index: 100; font-size: 28px; display: flex; align-items: center; justify-content: center;
+    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.4));
+}
+#p1 { bottom: 2px; left: 2px; }
+#p2 { bottom: 2px; right: 2px; }
+
+#roll-btn {
+    padding: 12px 40px; font-size: 20px; background: #1dd1a1;
+    color: #fff; border: none; border-radius: 50px; cursor: pointer;
+    box-shadow: 0 6px 0 #10ac84; font-weight: 900; transition: 0.2s;
+}
+#roll-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #10ac84; }
+#status-msg { color: white; margin-top: 15px; font-size: 12px; letter-spacing: 1px; }
+
+
+/* MODAL OVERLAY */
+#card-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); /* Safari support */
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+    /* This creates the 3D space for the card to flip in */
+    perspective: 1500px; 
+}
+
+.detail-card {
+    width: 320px;
+    background: #fff;
+    border-radius: 18px;
+    border: 2px solid #000;
+    overflow: hidden;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+    /* Performance optimization */
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    transform-style: preserve-3d;
+}
+
+.detail-header {
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-bottom: 3px solid #000;
+    color: #000;
+}
+
+.detail-header h2 { margin: 0; font-size: 24px; text-transform: uppercase; }
+
+.detail-body { padding: 20px; font-family: 'Arial', sans-serif; }
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.detail-footer {
+    padding: 15px;
+    background: #f9f9f9;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #666;
+}
+/* Luck & Fate Card Styling */
+.detail-card.luck-theme {
+    background: linear-gradient(135deg, #ffffff 0%, #fff9e6 100%);
+    border: 3px solid #f1c40f;
+}
+
+.detail-card.fate-theme {
+    background: linear-gradient(135deg, #ffffff 0%, #f3f0ff 100%);
+    border: 3px solid #6c5ce7;
+}
+
+.card-msg {
+    font-size: 18px;
+    text-align: center;
+    padding: 20px;
+    font-weight: bold;
+    color: #2c3e50;
+    line-height: 1.4;
+}
+
+.card-reward {
+    font-size: 24px;
+    text-align: center;
+    color: #27ae60;
+    margin-bottom: 20px;
+}
+
+.card-penalty {
+    font-size: 24px;
+    text-align: center;
+    color: #e74c3c;
+    margin-bottom: 20px;
+}
+/* Corner Card Themes */
+.detail-card.jail-theme {
+    background: #fdfdfd;
+    border: 4px solid #2c3e50;
+}
+
+.detail-card.chai-theme {
+    background: #fff9f0;
+    border: 4px solid #e67e22;
+}
+
+.detail-card.police-theme {
+    background: #fff0f0;
+    border: 4px solid #c0392b;
+}
+
+.corner-msg {
+    text-align: center;
+    padding: 20px;
+    font-size: 16px;
+    color: #444;
+    line-height: 1.6;
+}
+/* ANIMATION CLASS */
+.show-modal { display: flex !important; }
