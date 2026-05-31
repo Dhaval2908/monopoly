@@ -15,7 +15,7 @@ export const gameState = {
             id: i,
             name: p.name,
             icon: p.icon,
-            balance: 100000,
+            balance: 1500000,
             position: 0,
             isJailed: false,
             // Setup default objects for jail handling and banking loans
