@@ -7,21 +7,65 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-board">
-        <div class="center-piece">
-            <div class="logo">DESI BUSINESS</div>
-            <div class="dice-area">
-                <div class="scene"><div id="cube1" class="cube"></div></div>
-                <div class="scene"><div id="cube2" class="cube"></div></div>
+
+    <div id="lobby-screen" class="lobby-overlay">
+        <div class="lobby-card">
+            <h1 class="lobby-title">DESI BUSINESS</h1>
+            
+            <div id="lobby-step-1">
+                <p>Select Number of Players</p>
+                <div class="count-selector">
+                    <button class="count-btn" onclick="lobby.setupPlayers(2)">2</button>
+                    <button class="count-btn" onclick="lobby.setupPlayers(3)">3</button>
+                    <button class="count-btn" onclick="lobby.setupPlayers(4)">4</button>
+                    <button class="count-btn" onclick="lobby.setupPlayers(5)">5</button>
+                    <button class="count-btn" onclick="lobby.setupPlayers(6)">6</button>
+                </div>
             </div>
-            <button id="roll-btn">ROLL DICE</button>
-            <p id="status-msg">PLAYER 1 (🛺) TURN</p>
+
+            <div id="lobby-step-2" style="display:none;">
+                <div id="player-input-container"></div>
+                <button class="start-btn" onclick="lobby.startGame()">START ADVENTURE</button>
+            </div>
         </div>
     </div>
-    <div id="card-modal">
-        <div class="detail-card" id="detail-card-content">
+
+    <!-- MAIN GAME LAYOUT BODY CONTAINER -->
+    <div id="game-container-layout" style="display: none;">
+        
+        <!-- Left Side: Current Player Portfolio Status -->
+        <div id="left-portfolio" class="asset-sidebar">
+            <h3>YOUR ASSETS</h3>
+            <div id="current-player-deeds"></div>
+        </div>
+
+        <!-- Center: Your Master Core Board Layout -->
+        <div id="game-board">
+            <div class="center-piece">
+                <div class="logo">DESI BUSINESS</div>
+                <div class="dice-area">
+                    <div class="scene"><div id="cube1" class="cube"></div></div>
+                    <div class="scene"><div id="cube2" class="cube"></div></div>
+                </div>
+                <button id="roll-btn">ROLL DICE</button>
+                <p id="status-msg">PLAYER 1 (🛺) TURN</p>
+                <button onclick="window.openTradePanel()" class="action-btn-trade">🤝 Propose Trade</button>
+            </div>
+            <!-- Dynamic JavaScript Loop builds board spaces here natively -->
+        </div>
+
+        <!-- Right Side: Competitors View Layer -->
+        <div id="right-portfolio" class="asset-sidebar">
+            <h3>COMPETITORS</h3>
+            <div id="opponent-deeds-container"></div>
         </div>
     </div>
-    <script src="script.js"></script>
+
+    <!-- Shared Floating Modals (Deed Details & Popups) -->
+    <div id="card-modal" style="display: none;" onclick="window.closeCardModal(event)">
+        <div class="detail-card" id="detail-card-content"></div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>
