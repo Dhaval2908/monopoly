@@ -17,10 +17,9 @@ export async function movePlayer(steps) {
         player.position = (player.position + 1) % 40;
         
         // Pass START Salary logic
+        // Pass START Salary logic
         if (player.position === 0) {
-            player.balance += 200000;
-            alert(`🚩 Passed START! Collected salary bonus of ₹2,00,000`);
-            bankLogic.updateHUDDisplay();
+            bankLogic.processLapCompletion(gameState.currentPlayerIndex);
         }
 
         const target = document.getElementById(`space-${player.position}`);

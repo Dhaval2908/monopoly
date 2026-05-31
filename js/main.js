@@ -144,6 +144,16 @@ export function handleDiceRoll(d1, d2) {
 
     movePlayer(d1 + d2);
 }
+// Inside your token movement completion callback function:
+function finalizePlayerMovement(spaceId) {
+    const targetSpace = boardData.find(s => s.id === spaceId);
+    
+    // 1. Instantly change UI layout mode to lock out the roll dice option
+    setTurnControlUIMode("THINKING_PHASE");
+    
+    // 2. Open up choice layout modal context
+    showCardDetail(targetSpace, true);
+}
 
 // JAIL SELECTION ACTIONS AVAILABLE TO UI
 window.payJailFine = () => {

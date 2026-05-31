@@ -30,16 +30,13 @@
         </div>
     </div>
 
-    <!-- MAIN GAME LAYOUT BODY CONTAINER -->
     <div id="game-container-layout" style="display: none;">
         
-        <!-- Left Side: Current Player Portfolio Status -->
         <div id="left-portfolio" class="asset-sidebar">
             <h3>YOUR ASSETS</h3>
             <div id="current-player-deeds"></div>
         </div>
 
-        <!-- Center: Your Master Core Board Layout -->
         <div id="game-board">
             <div class="center-piece">
                 <div class="logo">DESI BUSINESS</div>
@@ -47,21 +44,19 @@
                     <div class="scene"><div id="cube1" class="cube"></div></div>
                     <div class="scene"><div id="cube2" class="cube"></div></div>
                 </div>
-                <button id="roll-btn">ROLL DICE</button>
+                
+                <button id="roll-btn">ROLL DICE</button>                
                 <p id="status-msg">PLAYER 1 (🛺) TURN</p>
                 <button onclick="window.openTradePanel()" class="action-btn-trade">🤝 Propose Trade</button>
             </div>
-            <!-- Dynamic JavaScript Loop builds board spaces here natively -->
-        </div>
+            </div>
 
-        <!-- Right Side: Competitors View Layer -->
         <div id="right-portfolio" class="asset-sidebar">
             <h3>COMPETITORS</h3>
             <div id="opponent-deeds-container"></div>
         </div>
     </div>
 
-    <!-- Shared Floating Modals (Deed Details & Popups) -->
     <div id="card-modal" style="display: none;" onclick="window.closeCardModal(event)">
         <div class="detail-card" id="detail-card-content"></div>
     </div>

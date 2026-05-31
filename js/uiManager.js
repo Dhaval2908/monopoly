@@ -3,12 +3,64 @@ import { boardData, luckCards, fateCards } from './data.js';
 import { gameState } from './gameState.js';
 import { bankLogic } from './bankLogic.js';
 
+// Tracks whether the currently open modal represents an active turn action
+let landedActionInModal = false;
+
+/**
+ * Manages disabled states for the roll dice button.
+ * @param {string} phaseMode - Can be either "ROLLING_PHASE" or "THINKING_PHASE"
+ */
+export function setTurnControlUIMode(phaseMode) {
+    const rollBtn = document.getElementById('roll-btn');
+    if (!rollBtn) return;
+
+    if (phaseMode === "ROLLING_PHASE") {
+        rollBtn.disabled = false; // Ready for next player to roll
+    } else if (phaseMode === "THINKING_PHASE") {
+        rollBtn.disabled = true;  // Lock roll button during active choice tracking
+    }
+}
+
+/**
+ * Triggered when a user clicks on ANY space on the board layout manually.
+ */
+export function handleSpaceClick(spaceId) {
+    // Coerce data types to string to guarantee a clean match across data structures
+    const targetSpace = boardData.find(s => String(s.id) === String(spaceId));
+    if (!targetSpace) return;
+
+    const currentPlayer = gameState.players[gameState.currentPlayerIndex];
+    
+    // Check if the roll button is disabled, meaning a roll already happened this turn
+    const rollBtn = document.getElementById('roll-btn');
+    const hasRolled = rollBtn ? rollBtn.disabled : false;
+    
+    // CRITICAL FIX: Use loose equality '==' or String coercion so that number vs string ID differences don't break validation
+    const isStandingOnThisSpace = (String(currentPlayer.position) === String(targetSpace.id));
+
+    if (isStandingOnThisSpace && hasRolled) {
+        // Re-open with full functional operational panel (BUY / PASS options restored!)
+        showCardDetail(targetSpace, true); 
+    } else {
+        showCardDetail(targetSpace, false); // Standard inspection preview for other properties
+    }
+}
+
+/**
+ * Renders the asset deed or special event card in a centralized modal box.
+ */
 export function showCardDetail(data, isLandedAction = false) {
     const modal = document.getElementById('card-modal');
     const content = document.getElementById('detail-card-content');
     if (!modal || !content) return;
     
-    // Reset any inline properties left behind by animations
+    // Track if this is a landed action so that background clicks know to switch to THINKING_PHASE
+    landedActionInModal = isLandedAction;
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) { e.stopPropagation(); }
+    };
+    
     modal.style.opacity = "";
     modal.style.transform = "";
     modal.style.visibility = "";
@@ -22,29 +74,36 @@ export function showCardDetail(data, isLandedAction = false) {
     const isBuyable = data.type === "property" || data.type === "transport" || data.type === "utility";
     const ownerIndex = gameState.ownership[data.id];
 
-    // --- 1. LUCK / FATE DYNAMIC OBJECT DECK HANDLER (WITH WALLET COUPLING) ---
+    let activeLandedCard = null;
+    let isActiveCardLuck = false;
+
+    // --- 1. LUCK / FATE DECK MANAGEMENT ---
     if (data.type === "luck" || data.type === "fate") {
         const isLuck = data.type === "luck";
         const deck = isLuck ? luckCards : fateCards;
         const randomCard = deck[Math.floor(Math.random() * deck.length)];
         const cardThemeColor = isLuck ? "#8e44ad" : "#c0392b";
         
-        // EXECUTE TRANSACTION ACTION IF LANDED RUNTIME ACTIVATED
         if (isLandedAction) {
-            bankLogic.applyCardFinancials(randomCard, isLuck);
+            activeLandedCard = randomCard;
+            isActiveCardLuck = isLuck;
+            
+            window.executeLandedCardAction = () => {
+                bankLogic.applyCardFinancials(activeLandedCard, isActiveCardLuck);
+                window.forceNextTurn(); 
+            };
         }
 
         detailHTML = `
             <div class="detail-header" style="background: ${cardThemeColor}; color: #fff; padding: 15px; text-align: center;">
                 <h2 style="margin: 0; color: #fff;">${randomCard.icon} ${randomCard.title}</h2>
-                <span style="font-size: 11px; opacity: 0.8; letter-spacing: 1px;">${data.type.toUpperCase()} ACTION PERFORMED</span>
+                <span style="font-size: 11px; opacity: 0.8; letter-spacing: 1px;">${data.type.toUpperCase()} ACTION</span>
             </div>
             <div class="detail-body text-center" style="padding: 20px; text-align: center;">
                 <p style="font-size: 16px; margin: 10px 0; color: #2c3e50; font-weight: 500;">"${randomCard.msg}"</p>
                 <div style="background: #f8f9fa; border: 2px dashed ${cardThemeColor}; padding: 12px; border-radius: 8px; display: inline-block; margin-top: 10px;">
                     <strong style="color: ${cardThemeColor}; font-size: 15px;">${randomCard.effect}</strong>
                 </div>
-                <p style="font-size:11px; color:#27ae60; margin-top:12px; font-weight:bold;">✓ Account ledger automatically balanced by Bank.</p>
             </div>
         `;
     }
@@ -55,10 +114,10 @@ export function showCardDetail(data, isLandedAction = false) {
         
         if (data.name === "START") {
             titleColor = "#27ae60";
-            description = "Collect baseline salary allowance of ₹2,0,000 every single time you cycle past.";
+            description = "Collect baseline salary allowance of ₹2,0,0,000 every single time you cycle past.";
         } else if (data.name === "Chai Break") {
             titleColor = "#16a085";
-            description = "Relax and unwind at the stall. No fees, no dues, no rent collections—just safe break time.";
+            description = "Relax and unwind at the stall. No fees, no dues, no rent collections.";
         } else if (data.name === "Jail") {
             titleColor = "#7f8c8d";
             description = "Secured holding complex compound. Visiting safely or serving penalty rounds.";
@@ -80,7 +139,7 @@ export function showCardDetail(data, isLandedAction = false) {
             </div>
         `;
     }
-    // --- 3. STANDARD PROPERTIES ---
+    // --- 3. BUYABLE PROPERTIES ---
     else if (isBuyable) {
         let baseRent = data.type === "property" ? Math.round(priceNum * 0.1) : 25000;
         let h1 = baseRent * 3, h2 = baseRent * 9, h3 = baseRent * 25, hotel = baseRent * 50;
@@ -100,21 +159,29 @@ export function showCardDetail(data, isLandedAction = false) {
                     <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>With 2 Houses</span> <span>₹${h2.toLocaleString()}</span></div>
                     <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>With 3 Houses</span> <span>₹${h3.toLocaleString()}</span></div>
                     <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 4px; color: #e74c3c; font-weight:bold;"><span>With HOTEL STRUCTURE</span> <span>₹${hotel.toLocaleString()}</span></div>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
-                    <div class="detail-row" style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>House Construction Cost</span> <span>₹${Math.round(priceNum * 0.4).toLocaleString()} each</span></div>
-                ` : `<p style="font-size:11px; color:#7f8c8d; font-style: italic; margin: 10px 0;">Rent rules scale upward proportionally based on total municipal holdings owned.</p>`}
+                ` : `<p style="font-size:11px; color:#7f8c8d; font-style: italic; margin: 10px 0;">Rent scales based on corporate holdings owned.</p>`}
                 <div class="detail-row" style="display: flex; justify-content: space-between; margin-top: 4px; font-size:12px; color:#7f8c8d;"><span>Mortgage Value</span> <span>₹${(priceNum / 2).toLocaleString()}</span></div>
             </div>
         `;
     }
 
-    // --- BUTTON OPTIONS FOOTER ---
+    // --- BUTTON FOOTER ASSEMBLY ---
     if (isLandedAction) {
-        if (ownerIndex === undefined && isBuyable) {
+        if (data.type === "luck" || data.type === "fate") {
+            const actionLabel = data.type === "luck" ? "COLLECT REWARD" : "PAY PENALTY";
+            const btnColor = data.type === "luck" ? "#8e44ad" : "#c0392b";
+            detailHTML += `
+                <div style="padding:12px; background: #f8f9fa;">
+                    <button style="width:100%; padding:14px; background:${btnColor}; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px; letter-spacing:0.5px;" onclick="window.executeLandedCardAction()">
+                        👉 ${actionLabel}
+                    </button>
+                </div>`;
+        }
+        else if (ownerIndex === undefined && isBuyable) {
             detailHTML += `
                 <div class="action-footer-box" style="padding: 12px; background: #f8f9fa; display: flex; gap: 10px;">
-                    <button style="flex:1; padding:12px; background:#2ecc71; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.buyProperty(${data.id})">BUY DEED</button>
-                    <button style="flex:1; padding:12px; background:#95a5a6; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.passTurn()">PASS TURN</button>
+                    <button style="flex:1; padding:12px; background:#2ecc71; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.buyPropertyAndPass(${data.id})">BUY DEED</button>
+                    <button style="flex:1; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">PASS TURN</button>
                 </div>
             `;
         } 
@@ -128,27 +195,43 @@ export function showCardDetail(data, isLandedAction = false) {
                         <button style="flex:1; padding:12px; background:#3498db; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.buildHouseOnLand(${data.id}, ${houseCost})">
                             BUILD ${currentHouses === 4 ? 'HOTEL' : 'HOUSE'} (₹${houseCost.toLocaleString()})
                         </button>
-                        <button style="flex:1; padding:12px; background:#95a5a6; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.passTurn()">PASS TURN</button>
+                        <button style="flex:1; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">PASS TURN</button>
                     </div>
                 `;
             } else {
                 detailHTML += `
                     <div style="padding: 15px; text-align:center; background: #f8f9fa;">
-                        <p style="color:#27ae60; font-weight:bold; margin:0 0 10px 0;">🏨 Max Hotel infrastructure achieved here!</p>
-                        <button style="width:100%; padding:10px; background:#2c3e50; color:#fff; border:none; border-radius:6px; cursor:pointer;" onclick="window.passTurn()">CONTINUE</button>
+                        <p style="color:#27ae60; font-weight:bold; margin:0 0 10px 0;">🏨 Max Hotel infrastructure achieved!</p>
+                        <button style="width:100%; padding:10px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">PASS TURN</button>
                     </div>`;
             }
         } 
         else {
-            detailHTML += `
-                <div style="padding:12px; background: #f8f9fa;">
-                    <button style="width:100%; padding:12px; background:#2c3e50; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.passTurn()">CONTINUE</button>
-                </div>`;
+            if (ownerIndex !== undefined && ownerIndex !== gameState.currentPlayerIndex) {
+                let rentDues = data.type === "property" ? Math.round(priceNum * 0.1) : 25000;
+                const currentHouses = gameState.structures[data.id] || 0;
+                if (currentHouses === 1) rentDues *= 3;
+                else if (currentHouses === 2) rentDues *= 9;
+                else if (currentHouses === 3) rentDues *= 25;
+                else if (currentHouses >= 4) rentDues *= 50;
+
+                detailHTML += `
+                    <div style="padding:12px; background: #f8f9fa;">
+                        <button style="width:100%; padding:14px; background:#e67e22; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.payRentAndPass(${gameState.currentPlayerIndex}, ${ownerIndex}, ${rentDues})">
+                            💸 PAY RENT (₹${rentDues.toLocaleString()})
+                        </button>
+                    </div>`;
+            } else {
+                detailHTML += `
+                    <div style="padding:12px; background: #f8f9fa;">
+                        <button style="width:100%; padding:12px; background:#2c3e50; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">CONTINUE</button>
+                    </div>`;
+            }
         }
     } else {
         detailHTML += `
             <div style="padding:12px; background: #f8f9fa;">
-                <button style="width:100%; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.closeModal()">CLOSE DETAILS</button>
+                <button style="width:100%; padding:12px; background:#7f8c8d; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.closeModalOnly()">CLOSE DETAILS</button>
             </div>`;
     }
 
@@ -156,14 +239,17 @@ export function showCardDetail(data, isLandedAction = false) {
     modal.style.display = 'flex';
 }
 
+/**
+ * Jail Layout Handler
+ */
 export function handleJailInterventionModal() {
     const modal = document.getElementById('card-modal');
     const content = document.getElementById('detail-card-content');
     if (!modal || !content) return;
 
+    modal.onclick = (e) => { if (e.target === modal) e.stopPropagation(); };
+
     const player = gameState.players[gameState.currentPlayerIndex];
-    
-    // Safety check: ensure jail properties are initialized
     if (player.jailTurns === undefined) player.jailTurns = 0;
     if (player.jailCards === undefined) player.jailCards = 0;
 
@@ -175,25 +261,20 @@ export function handleJailInterventionModal() {
             <span style="font-size: 11px; opacity: 0.8;">TURN ${player.jailTurns + 1} OF 3 IN CONFINEMENT</span>
         </div>
         <div class="detail-body" style="padding: 20px; text-align: center;">
-            <p style="font-size: 14px; color:#333;">Select your legal strategy to secure release from the holding block:</p>
-            
+            <p style="font-size: 14px; color:#333;">Select your release method:</p>
             <div class="jail-options-list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                
                 <button onclick="window.attemptJailEscapeRoll()" style="width:100%; padding:12px; background:#3498db; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
-                    🎲 Roll for Doubles (Free Escape)
+                    🎲 Roll for Doubles (Free Release)
                 </button>
-                
                 <button onclick="window.payJailBailImmediate()" style="width:100%; padding:12px; background:#2ecc71; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
                     💸 Pay Immediate Bail (₹50,000)
                 </button>
-                
                 ${player.jailCards > 0 ? `
                     <button onclick="window.useJailFreeCard()" style="width:100%; padding:12px; background:#9b59b6; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
                         🎟️ Use 'Jail Free' Luck Card (${player.jailCards} Available)
                     </button>
                 ` : ''}
-
-                <button ${player.jailTurns < 2 ? 'disabled style="background:#bdc3c7; cursor:not-allowed;"' : 'style="background:#e67e22;"'} onclick="window.serveOutFinalJailRound()" style="width:100%; padding:12px; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+                <button ${player.jailTurns < 2 ? 'disabled style="background:#bdc3c7; cursor:not-allowed;"' : 'style="background:#e67e22; cursor:pointer;"'} onclick="window.serveOutFinalJailRound()" style="width:100%; padding:12px; color:white; border:none; border-radius:6px; font-weight:bold;">
                     ⏳ ${player.jailTurns < 2 ? `Serve ${2 - player.jailTurns} More Rounds` : 'Serve Third Round & Pay Fine (₹20,000)'}
                 </button>
             </div>
@@ -204,69 +285,125 @@ export function handleJailInterventionModal() {
     modal.style.display = 'flex';
 }
 
-// Global actions connected directly to your buttons
+/* Global Window hooks for actions */
 window.attemptJailEscapeRoll = () => {
-    // Generate two random values for the dice
     const d1 = Math.floor(Math.random() * 6) + 1;
     const d2 = Math.floor(Math.random() * 6) + 1;
-    
     alert(`Dice rolled: [${d1}] and [${d2}]`);
     
+    const activePlayer = gameState.players[gameState.currentPlayerIndex];
     if (d1 === d2) {
-        alert("🎉 Doubles! Your legal appeal succeeded. You are released from Jail!");
-        gameState.players[gameState.currentPlayerIndex].inJail = false;
-        gameState.players[gameState.currentPlayerIndex].jailTurns = 0;
-        window.closeModal();
+        alert("🎉 Doubles! Release authorized!");
+        activePlayer.isJailed = false;
+        activePlayer.jailTurns = 0;
+        window.closeModalOnly();
     } else {
-        alert("❌ Not doubles. Your release request was denied. Your turn passes.");
-        gameState.players[gameState.currentPlayerIndex].jailTurns += 1;
-        window.closeModal();
-        window.passTurn(); // Automatically move to the next player's turn
+        alert("❌ No match. Release request denied.");
+        activePlayer.jailTurns += 1;
+        window.forceNextTurn(); 
     }
 };
 
 window.payJailBailImmediate = () => {
     const activeIndex = gameState.currentPlayerIndex;
-    const success = bankLogic.processPayment(activeIndex, null, 50000);
-    
-    if (success) {
-        alert("🤝 Bail posting processed successfully! Your token is released.");
-        gameState.players[activeIndex].inJail = false;
+    bankLogic.processPayment(activeIndex, null, 50000, () => {
+        alert("🤝 Bail paid! Release authorized.");
+        gameState.players[activeIndex].isJailed = false;
         gameState.players[activeIndex].jailTurns = 0;
-        window.closeModal();
-    }
+        window.closeModalOnly();
+    });
 };
 
 window.useJailFreeCard = () => {
     const player = gameState.players[gameState.currentPlayerIndex];
     player.jailCards--;
-    player.inJail = false;
+    player.isJailed = false;
     player.jailTurns = 0;
-    alert("🎟️ Card surrendered to authorities. You are free to move!");
-    window.closeModal();
+    alert("🎟️ Surrendered 'Jail Free' card. Release authorized!");
+    window.closeModalOnly();
 };
 
 window.serveOutFinalJailRound = () => {
     const activeIndex = gameState.currentPlayerIndex;
-    const success = bankLogic.processPayment(activeIndex, null, 20000);
-    
-    if (success) {
-        alert("⏳ Sentence served. Minimum processing fee paid. You are released.");
-        gameState.players[activeIndex].inJail = false;
+    bankLogic.processPayment(activeIndex, null, 20000, () => {
+        alert("⏳ Time served. Processing processing fees applied.");
+        gameState.players[activeIndex].isJailed = false;
         gameState.players[activeIndex].jailTurns = 0;
-        window.closeModal();
-    }
+        window.forceNextTurn();
+    });
 };
 
-window.closeCardModal = (e) => {
-    if (e.target.id === "card-modal") { window.closeModal(); }
+window.buyPropertyAndPass = (spaceId) => {
+    if (typeof window.buyProperty === "function") {
+        window.buyProperty(spaceId);
+    }
+    window.forceNextTurn();
+};
+
+window.payRentAndPass = (fromIndex, toIndex, amount) => {
+    bankLogic.processPayment(fromIndex, toIndex, amount, () => {
+        window.forceNextTurn();
+    });
+};
+
+/**
+ * Increments to the next player's turn completely and resets the roll button state.
+ */
+window.forceNextTurn = () => {
+    const modal = document.getElementById('card-modal');
+    if (modal) modal.style.display = 'none';
+    landedActionInModal = false;
+
+    // Advance turn state safely
+    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+    
+    if (bankLogic && typeof bankLogic.updateHUDDisplay === 'function') {
+        bankLogic.updateHUDDisplay();
+    } else {
+        const status = document.getElementById('status-msg');
+        if (status) status.innerText = `PLAYER ${gameState.currentPlayerIndex + 1} TURN`;
+    }
+    
+    setTurnControlUIMode("ROLLING_PHASE");
+};
+
+window.closeModalOnly = () => {
+    const modal = document.getElementById('card-modal');
+    if (modal) modal.style.display = 'none';
 };
 
 window.closeModal = () => {
     const modal = document.getElementById('card-modal');
     if (modal) {
         modal.style.display = 'none';
-        const content = document.getElementById('detail-card-content');
-        if (content) { content.style.opacity = ""; content.style.transform = ""; }
+        
+        // When closing via background click during an active turn, 
+        // lock the roll button into the THINKING_PHASE so they can't roll again,
+        // but DO NOT skip their turn so they can re-tap the property to buy it.
+        if (landedActionInModal) {
+            setTurnControlUIMode("THINKING_PHASE"); 
+        }
     }
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('card-modal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                window.closeModal();
+            }
+        });
+    }
+});
+
+//if clicl on outside cdard then it close the card and we can not buy  or pass and because of that we can not roll the dice 
+// second in  income tax and waleth tax same if we click in background then it chnage turn and not deduct the money .
+// this is testing cheat code .
+// what we can do we can disable backrouf touch that the easy way to solve this problem but i want to solve this problem without disable the background touch because if we disable the background touch then we can not click on background to close the card and that is also a problem so i want to solve this problem without disable the background touch and also we can click on background to close the card and also we can not change the turn when we click on background and also we can not buy or pass when we click on background so how we can do this .
+// // 1. Drain the current player's money to ₹0 to force a crisis
+// gameState.players[gameState.currentPlayerIndex].balance = 0;
+// bankLogic.updateHUDDisplay();
+
+// // 2. Force land them on Space Index 5 (or whatever your Tax index is)
+// bankLogic.handleLanding(30);
