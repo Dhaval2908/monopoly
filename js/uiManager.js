@@ -90,7 +90,7 @@ export function showCardDetail(data, isLandedAction = false) {
             
             window.executeLandedCardAction = () => {
                 bankLogic.applyCardFinancials(activeLandedCard, isActiveCardLuck);
-                window.forceNextTurn(); 
+                // window.forceNextTurn(); 
             };
         }
 
@@ -181,7 +181,7 @@ export function showCardDetail(data, isLandedAction = false) {
             detailHTML += `
                 <div class="action-footer-box" style="padding: 12px; background: #f8f9fa; display: flex; gap: 10px;">
                     <button style="flex:1; padding:12px; background:#2ecc71; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.buyPropertyAndPass(${data.id})">BUY DEED</button>
-                    <button style="flex:1; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">PASS TURN</button>
+                    <button style="flex:1; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="bankLogic.endTurnSequence()">PASS TURN</button>
                 </div>
             `;
         } 
@@ -195,14 +195,14 @@ export function showCardDetail(data, isLandedAction = false) {
                         <button style="flex:1; padding:12px; background:#3498db; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.buildHouseOnLand(${data.id}, ${houseCost})">
                             BUILD ${currentHouses === 4 ? 'HOTEL' : 'HOUSE'} (₹${houseCost.toLocaleString()})
                         </button>
-                        <button style="flex:1; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">PASS TURN</button>
+                        <button style="flex:1; padding:12px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="bankLogic.endTurnSequence()">PASS TURN</button>
                     </div>
                 `;
             } else {
                 detailHTML += `
                     <div style="padding: 15px; text-align:center; background: #f8f9fa;">
                         <p style="color:#27ae60; font-weight:bold; margin:0 0 10px 0;">🏨 Max Hotel infrastructure achieved!</p>
-                        <button style="width:100%; padding:10px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">PASS TURN</button>
+                        <button style="width:100%; padding:10px; background:#e74c3c; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="bankLogic.endTurnSequence()">PASS TURN</button>
                     </div>`;
             }
         } 
@@ -224,7 +224,7 @@ export function showCardDetail(data, isLandedAction = false) {
             } else {
                 detailHTML += `
                     <div style="padding:12px; background: #f8f9fa;">
-                        <button style="width:100%; padding:12px; background:#2c3e50; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="window.forceNextTurn()">CONTINUE</button>
+                        <button style="width:100%; padding:12px; background:#2c3e50; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;" onclick="bankLogic.endTurnSequence()">CONTINUE</button>
                     </div>`;
             }
         }
@@ -250,7 +250,9 @@ export function handleJailInterventionModal() {
     modal.onclick = (e) => { if (e.target === modal) e.stopPropagation(); };
 
     const player = gameState.players[gameState.currentPlayerIndex];
-    if (player.jailTurns === undefined) player.jailTurns = 0;
+    
+    // Initialize required state variables cleanly if undefined
+    if (player.jailWaitCounter === undefined) player.jailWaitCounter = 3;
     if (player.jailCards === undefined) player.jailCards = 0;
 
     content.className = "detail-card jail-theme";
@@ -258,25 +260,31 @@ export function handleJailInterventionModal() {
     let optionsHTML = `
         <div class="detail-header" style="background: #2c3e50; color: #fff; padding: 15px; text-align: center;">
             <h2 style="margin:0; color:#fff;">🚔 CENTRAL JAIL LOCKUP</h2>
-            <span style="font-size: 11px; opacity: 0.8;">TURN ${player.jailTurns + 1} OF 3 IN CONFINEMENT</span>
+            <span style="font-size: 12px; opacity: 0.9; font-weight: bold; letter-spacing: 0.5px;">
+                ⚠️ CONFINEMENT REMAINING: ${player.jailWaitCounter} ROUNDS
+            </span>
         </div>
         <div class="detail-body" style="padding: 20px; text-align: center;">
-            <p style="font-size: 14px; color:#333;">Select your release method:</p>
-            <div class="jail-options-list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                <button onclick="window.attemptJailEscapeRoll()" style="width:100%; padding:12px; background:#3498db; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
-                    🎲 Roll for Doubles (Free Release)
-                </button>
+            <p style="font-size: 14px; color:#333; margin-bottom: 15px;">Choose an action for this round:</p>
+            <div class="jail-options-list" style="display: flex; flex-direction: column; gap: 10px;">
+                
                 <button onclick="window.payJailBailImmediate()" style="width:100%; padding:12px; background:#2ecc71; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
-                    💸 Pay Immediate Bail (₹50,000)
+                    💸 Pay Immediate Bail (₹50,000) ${player.jailWaitCounter === 3 ? '(Exit Next Round)' : '(Roll Now)'}
                 </button>
+                
+                <button onclick="window.attemptJailEscapeRoll()" style="width:100%; padding:12px; background:#3498db; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+                    🎲 Roll for Doubles (Free Escape)
+                </button>
+                
+                <button onclick="window.servePassiveJailRound()" style="width:100%; padding:12px; background:#e67e22; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
+                    ⏳ Wait Out This Round (Pass Turn)
+                </button>
+
                 ${player.jailCards > 0 ? `
                     <button onclick="window.useJailFreeCard()" style="width:100%; padding:12px; background:#9b59b6; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">
                         🎟️ Use 'Jail Free' Luck Card (${player.jailCards} Available)
                     </button>
                 ` : ''}
-                <button ${player.jailTurns < 2 ? 'disabled style="background:#bdc3c7; cursor:not-allowed;"' : 'style="background:#e67e22; cursor:pointer;"'} onclick="window.serveOutFinalJailRound()" style="width:100%; padding:12px; color:white; border:none; border-radius:6px; font-weight:bold;">
-                    ⏳ ${player.jailTurns < 2 ? `Serve ${2 - player.jailTurns} More Rounds` : 'Serve Third Round & Pay Fine (₹20,000)'}
-                </button>
             </div>
         </div>
     `;
@@ -285,88 +293,161 @@ export function handleJailInterventionModal() {
     modal.style.display = 'flex';
 }
 
-/* Global Window hooks for actions */
+/* Global Window Hooks for Jail Operations */
+
+window.payJailBailImmediate = () => {
+    const activeIndex = gameState.currentPlayerIndex;
+    const player = gameState.players[activeIndex];
+    
+    import('./bankLogic.js').then(m => {
+        m.bankLogic.processPayment(activeIndex, null, 50000, () => {
+            player.isJailed = false;
+            
+            // Check if this is their first attempt (Counter is still at 3)
+            if (player.jailWaitCounter === 3) {
+                alert("🤝 Bail settled on 1st round! Release authorized. Your turn will pass, and you can roll normally next round.");
+                player.jailWaitCounter = 0; 
+                window.closeModalOnly();
+                m.bankLogic.endTurnSequence(); // End turn immediately
+            } else {
+                alert("🤝 Bail settled early! Release authorized. You can roll your dice right now!");
+                player.jailWaitCounter = 0;
+                window.closeModalOnly();
+                
+                // Authorize rolling immediately
+                if (typeof window.setTurnControlUIMode === "function") {
+                    window.setTurnControlUIMode("ROLLING_PHASE");
+                } else {
+                    const rollBtn = document.getElementById('roll-btn');
+                    if (rollBtn) rollBtn.disabled = false;
+                }
+                m.bankLogic.updateHUDDisplay();
+            }
+        });
+    });
+};
+
 window.attemptJailEscapeRoll = () => {
+    const activeIndex = gameState.currentPlayerIndex;
+    const player = gameState.players[activeIndex];
+    
     const d1 = Math.floor(Math.random() * 6) + 1;
     const d2 = Math.floor(Math.random() * 6) + 1;
     alert(`Dice rolled: [${d1}] and [${d2}]`);
     
-    const activePlayer = gameState.players[gameState.currentPlayerIndex];
-    if (d1 === d2) {
-        alert("🎉 Doubles! Release authorized!");
-        activePlayer.isJailed = false;
-        activePlayer.jailTurns = 0;
-        window.closeModalOnly();
-    } else {
-        alert("❌ No match. Release request denied.");
-        activePlayer.jailTurns += 1;
-        window.forceNextTurn(); 
-    }
+    import('./bankLogic.js').then(m => {
+        if (d1 === d2) {
+            player.isJailed = false;
+            
+            // Check if it was their first turn attempt
+            if (player.jailWaitCounter === 3) {
+                alert("🎉 Doubles matched on 1st turn! Escape authorized. Your turn will pass, and you roll normally starting next round.");
+                player.jailWaitCounter = 0;
+                window.closeModalOnly();
+                m.bankLogic.endTurnSequence();
+            } else {
+                alert("🎉 Doubles matched! Escape authorized. Take your immediate roll turn right now!");
+                player.jailWaitCounter = 0;
+                window.closeModalOnly();
+                
+                if (typeof window.setTurnControlUIMode === "function") {
+                    window.setTurnControlUIMode("ROLLING_PHASE");
+                } else {
+                    const rollBtn = document.getElementById('roll-btn');
+                    if (rollBtn) rollBtn.disabled = false;
+                }
+                m.bankLogic.updateHUDDisplay();
+            }
+        } else {
+            alert("❌ No match! Escape attempt failed.");
+            player.jailWaitCounter -= 1; // Decrement remaining rounds
+            
+            if (player.jailWaitCounter <= 0) {
+                alert(`🔓 You have completed all 3 jail round requirements! You are released and can move normally next turn.`);
+                player.isJailed = false;
+                player.jailWaitCounter = 0;
+            } else {
+                alert(`⏳ Remaining custody rounds left: ${player.jailWaitCounter}`);
+            }
+            
+            window.closeModalOnly();
+            m.bankLogic.endTurnSequence(); 
+        }
+    });
 };
 
-window.payJailBailImmediate = () => {
+window.servePassiveJailRound = () => {
     const activeIndex = gameState.currentPlayerIndex;
-    bankLogic.processPayment(activeIndex, null, 50000, () => {
-        alert("🤝 Bail paid! Release authorized.");
-        gameState.players[activeIndex].isJailed = false;
-        gameState.players[activeIndex].jailTurns = 0;
-        window.closeModalOnly();
-    });
+    const player = gameState.players[activeIndex];
+
+    player.jailWaitCounter -= 1;
+    alert(`⏳ Confinement round served. Counter reduced. Remaining rounds left: ${player.jailWaitCounter}`);
+
+    if (player.jailWaitCounter <= 0) {
+        alert(`🔓 Sentence fully served! You are released and can move normally starting next turn.`);
+        player.isJailed = false;
+        player.jailWaitCounter = 0;
+    }
+
+    window.closeModalOnly();
+    import('./bankLogic.js').then(m => m.bankLogic.endTurnSequence());
 };
 
 window.useJailFreeCard = () => {
     const player = gameState.players[gameState.currentPlayerIndex];
     player.jailCards--;
     player.isJailed = false;
-    player.jailTurns = 0;
-    alert("🎟️ Surrendered 'Jail Free' card. Release authorized!");
-    window.closeModalOnly();
-};
-
-window.serveOutFinalJailRound = () => {
-    const activeIndex = gameState.currentPlayerIndex;
-    bankLogic.processPayment(activeIndex, null, 20000, () => {
-        alert("⏳ Time served. Processing processing fees applied.");
-        gameState.players[activeIndex].isJailed = false;
-        gameState.players[activeIndex].jailTurns = 0;
-        window.forceNextTurn();
+    
+    import('./bankLogic.js').then(m => {
+        if (player.jailWaitCounter === 3) {
+            alert("🎟️ Card used on 1st round! Turn passed. Move normally starting next round.");
+            player.jailWaitCounter = 0;
+            window.closeModalOnly();
+            m.bankLogic.endTurnSequence();
+        } else {
+            alert("🎟️ Card used! You are released. Roll your dice to move normally right now!");
+            player.jailWaitCounter = 0;
+            window.closeModalOnly();
+            
+            if (typeof window.setTurnControlUIMode === "function") {
+                window.setTurnControlUIMode("ROLLING_PHASE");
+            } else {
+                const rollBtn = document.getElementById('roll-btn');
+                if (rollBtn) rollBtn.disabled = false;
+            }
+            m.bankLogic.updateHUDDisplay();
+        }
     });
 };
-
 window.buyPropertyAndPass = (spaceId) => {
     if (typeof window.buyProperty === "function") {
+        console.log(`Attempting to buy property with ID: ${spaceId}`);
         window.buyProperty(spaceId);
     }
-    window.forceNextTurn();
+    console.log("buy done");
+    
 };
 
 window.payRentAndPass = (fromIndex, toIndex, amount) => {
     bankLogic.processPayment(fromIndex, toIndex, amount, () => {
-        window.forceNextTurn();
+        // window.forceNextTurn();
     });
 };
 
-/**
- * Increments to the next player's turn completely and resets the roll button state.
- */
-window.forceNextTurn = () => {
-    const modal = document.getElementById('card-modal');
-    if (modal) modal.style.display = 'none';
-    landedActionInModal = false;
 
-    // Advance turn state safely
-    gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+// window.forceNextTurn = () => {
+//     console.log("🎬 Initiating streamlined turn transition from UI...");
     
-    if (bankLogic && typeof bankLogic.updateHUDDisplay === 'function') {
-        bankLogic.updateHUDDisplay();
-    } else {
-        const status = document.getElementById('status-msg');
-        if (status) status.innerText = `PLAYER ${gameState.currentPlayerIndex + 1} TURN`;
-    }
+//     // 1. Close any open dialog views safely
+//     const modal = document.getElementById('card-modal');
+//     if (modal) modal.style.display = 'none';
     
-    setTurnControlUIMode("ROLLING_PHASE");
-};
-
+//     // 2. Reset active flag counters
+//     landedActionInModal = false;
+    
+//     // 3. Route directly into the bank control sequence (DO NOT increment index here!)
+//     bankLogic.endTurnSequence();
+// };
 window.closeModalOnly = () => {
     const modal = document.getElementById('card-modal');
     if (modal) modal.style.display = 'none';

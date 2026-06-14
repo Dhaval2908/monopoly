@@ -1,4 +1,4 @@
-// js/bankLogic.js
+
 import { gameState } from './gameState.js';
 import { boardData } from './data.js';
 import { showCardDetail, handleJailInterventionModal } from './uiManager.js';
@@ -14,17 +14,23 @@ export const bankLogic = {
         const priceNum = data.price ? (parseInt(data.price.replace('k', '')) * 1000) || 0 : 0;
 
         if (data.type === "corner") {
-            if (data.name === "START") { 
-                this.endTurnSequence();
-                return;
-            }
-            if (data.name === "Go To Jail" || data.name === "Traffic Jam!") {
+        if (data.name === "Go To Jail" || data.name === "Traffic Jam!") {
+            // Show the "Go To Jail" layout card first so they understand why they are moving
+            showCardDetail(data, true);
+            
+            // Automatically process their arrest movement after a small dramatic delay
+            setTimeout(() => {
+                window.closeModalOnly();
                 this.sendToJail(player);
-                return;
-            }
-            this.endTurnSequence();
+            }, 3000); 
             return;
         }
+        
+        // For standard casual corners like "START" or "Chai Break"
+        console.log(`Landed on corner space: ${data.name}. Displaying card layout.`);
+        showCardDetail(data, true); // true sets up the action footer layout button
+        return;
+    }
 
         if (data.type === "tax") {
             showCardDetail(data, false);
@@ -48,6 +54,7 @@ export const bankLogic = {
                 this.payRent(player, ownerIndex, spaceIndex, priceNum, data);
             }
         } else {
+            console.log("No ownership or landed on own property. Showing card detail for potential purchase or info.");
             showCardDetail(data, true); 
         }
     },
@@ -77,15 +84,26 @@ export const bankLogic = {
     /**
      * Purchases unowned properties from the bank.
      */
+    /**
+     * Purchases unowned properties from the bank.
+     */
+    /**
+     * Purchases unowned properties from the bank.
+     */
     buyProperty(spaceIndex) {
+        // SAFETY GUARD: Prevent accidental double-firing if the modal is already processing
+        if (this._isProcessingPurchase) return;
+        this._isProcessingPurchase = true;
+
         const player = gameState.players[gameState.currentPlayerIndex];
         const data = boardData[spaceIndex];
         const priceNum = data.price ? (parseInt(data.price.replace('k', '')) * 1000) || 0 : 0;
 
         this.processPayment(gameState.currentPlayerIndex, null, priceNum, () => {
+            // Assign ownership permanently
             gameState.ownership[spaceIndex] = gameState.currentPlayerIndex;
-            gameState.activeTurnSpaceChecked = true; 
 
+            // Update physical UI board map layout
             const spaceEl = document.getElementById(`space-${spaceIndex}`);
             if (spaceEl) {
                 let flag = spaceEl.querySelector('.owner-flag') || document.createElement('div');
@@ -94,8 +112,18 @@ export const bankLogic = {
                 spaceEl.appendChild(flag);
             }
 
+            // Close modal overlay cleanly 
             window.closeModal();
+
+            // Finalize state adjustments before swapping turn pointers
+            gameState.activeTurnSpaceChecked = true; 
+            
             this.endTurnSequence();
+            
+            // Reset the safety guard flag after the turn sequence finishes winding down
+            setTimeout(() => {
+                this._isProcessingPurchase = false;
+            }, 100);
         });
     },
 
@@ -124,9 +152,6 @@ export const bankLogic = {
     /**
      * Evaluates card actions fetched from Fortune/Fate piles.
      */
-   /**
-     * Evaluates card actions fetched from Fortune/Fate piles.
-     */
     applyCardFinancials(cardObject, isLuckCard) {
         const player = gameState.players[gameState.currentPlayerIndex];
         
@@ -152,7 +177,6 @@ export const bankLogic = {
             window.closeModal();
             this.endTurnSequence();
         } else {
-            // Hand payment off directly to processPayment
             this.processPayment(gameState.currentPlayerIndex, null, numericAmount, () => {
                 alert(`📋 Card Penalty Cleared: Paid ₹${numericAmount.toLocaleString()}`);
                 window.closeModal();
@@ -160,29 +184,86 @@ export const bankLogic = {
             });
         }
     },
+
     /**
      * Locks a player into the jail sector.
      */
-    sendToJail(player) {
+   sendToJail(player) {
         player.isJailed = true;
-        player.position = 10;
-        player.jailTurns = 0;
-        const targetCell = document.getElementById('space-10');
-        const token = document.getElementById(`p${player.id}`);
-        if (targetCell && token) { targetCell.appendChild(token); }
+        player.jailWaitCounter = 3; // Initialize wait counter to exactly 3 rounds
+        player.position = 10; // Instantly snap coordinates to jail board index
         
-        this.updateHUDDisplay();
-        setTimeout(() => {
-            handleJailInterventionModal();
-        }, 600);
+        const token = document.getElementById(`p${player.id}`);
+        const jailSpace = document.getElementById('space-10');
+        if (token && jailSpace) jailSpace.appendChild(token);
+        
+        alert(`🚔 ${player.name} sent to custody! You must pay bail, roll doubles, or serve 3 rounds.`);
+        this.endTurnSequence();
+    },
+    /**
+     * Tracks and handles consuming a Jail Free card to immediately liberate a player.
+     */
+    useJailEscapeCard(playerIndex) {
+        const player = gameState.players[playerIndex];
+        
+        if (player.jailCards && player.jailCards > 0) {
+            player.jailCards -= 1;
+            player.isJailed = false;
+            player.jailTurns = 0;
+            
+            alert(`🕊️ You used a "Free Jail Escape Card"! You are now free.`);
+            this.updateHUDDisplay();
+            
+            if (window.closeModal) {
+                window.closeModal();
+            }
+            this.endTurnSequence(); 
+        } else {
+            alert("❌ You do not possess a Free Jail Escape Card!");
+        }
     },
 
     /**
      * Refreshes dashboard layouts and hands off turn pointers.
      */
-    endTurnSequence() {
-        this.updateHUDDisplay();
+    // endTurnSequence() {
+    //     console.log("BEFORE CHANGE:", gameState.currentPlayerIndex);
+    //     this.updateHUDDisplay();
+    //     gameState.changeTurn();
+    //     console.log("AFTER CHANGE:", gameState.currentPlayerIndex);
+    // },
+    // js/bankLogic.js
+endTurnSequence() {
+        console.log("🔄 [BANK CENTRAL CONTROL] Progressing turn index pointer forward...");
+        window.closeModalOnly();
+
+        // Increment internal player tracking indexes natively via gameState engine
         gameState.changeTurn();
+        this.updateHUDDisplay();
+        
+        // Inspect the upcoming current player object
+        const nextPlayer = gameState.players[gameState.currentPlayerIndex];
+        
+        // INTERCEPT TRIGGER: If player is jailed, block rolling and display the choices menu
+        if (nextPlayer.isJailed) {
+            console.log(`🚔 Intercepting jailed player turn selection state...`);
+            
+            if (typeof window.setTurnControlUIMode === "function") {
+                window.setTurnControlUIMode("THINKING_PHASE"); // Disable roll dice elements
+            }
+            
+            // Pop open choice dialog automatically so they can select an action at the start of their turn
+            handleJailInterventionModal(); 
+        } 
+        // Standard normal player workflow
+        else {
+            if (typeof window.setTurnControlUIMode === "function") {
+                window.setTurnControlUIMode("ROLLING_PHASE"); // Unlock dice components
+            } else {
+                const rollBtn = document.getElementById('roll-btn');
+                if (rollBtn) rollBtn.disabled = false;
+            }
+        }
     },
 
     /**
@@ -195,14 +276,21 @@ export const bankLogic = {
                 spaceElement.onclick = null; 
                 spaceElement.addEventListener('click', (e) => {
                     e.stopPropagation(); 
-                    
+                      console.log(
+        "clicked",
+        item.id,
+        "activeTurnSpaceChecked:",
+        gameState.activeTurnSpaceChecked
+    );
                     const currentPlayer = gameState.players[gameState.currentPlayerIndex];
                     const ownerIndex = gameState.ownership[item.id];
                     const isBuyable = item.type === "property" || item.type === "transport" || item.type === "utility";
 
                     if (currentPlayer.position === item.id && isBuyable && ownerIndex === undefined && !gameState.activeTurnSpaceChecked) {
+                        console.log("hu moklu chu 1");
                         showCardDetail(item, true);
                     } else {
+                        console.log("hu moklu chu 2");
                         showCardDetail(item, false);
                     }
                 });
@@ -219,11 +307,9 @@ export const bankLogic = {
      */
     processPayment(fromPlayerIndex, toPlayerIndex, amount, successCallback) {
         const debtor = gameState.players[fromPlayerIndex];
-        console.log("hi");
-        console.log(debtor.balance);
+        console.log("Processing payment from player balance:", debtor.balance);
 
         if (debtor.balance < amount) {
-            console.log("karu chu oprn bhai  ");
             this.openFinancialCrisisModal(fromPlayerIndex, amount, toPlayerIndex, successCallback);
             return false; 
         }
@@ -251,6 +337,9 @@ export const bankLogic = {
         this.assessLapLoanInterest(playerIndex);
     },
 
+    /**
+     * Deploys financial crisis layout if wallet defaults.
+     */
     /**
      * Deploys financial crisis layout if wallet defaults.
      */
@@ -283,7 +372,6 @@ export const bankLogic = {
             </div>
         `;
         
-        // Use a tiny 10ms timeout to force this view to show AFTER the external file closes the card modal
         setTimeout(() => {
             modal.style.display = 'flex';
         }, 10);
@@ -295,10 +383,12 @@ export const bankLogic = {
         document.getElementById('crisis-loan-btn').onclick = () => {
             this.takeBankLoan(playerIndex, deficit);
             
+            // Re-attempt payment settlement. This fires the buyProperty successCallback cleanly.
             const paid = this.processPayment(playerIndex, creditorIndex, amountNeeded, successCallback);
             if (paid) {
-               gameState.activeTurnSpaceChecked = true;
-                window.closeModal()
+                // Do NOT explicitly mutate activeTurnSpaceChecked or call closeModal here.
+                // The successCallback (buyProperty) handles closing the modal and advancing the turn sequence.
+                console.log("Crisis resolved successfully via Bank Loan.");
             }
         };
     },
@@ -405,6 +495,7 @@ export const bankLogic = {
 /* Global window hooks for UI and layout controls */
 window.buyProperty = (id) => bankLogic.buyProperty(id);
 window.buildHouseOnLand = (id, cost) => bankLogic.buildHouseOnLand(id, cost);
+window.useJailEscapeCard = () => bankLogic.useJailEscapeCard(gameState.currentPlayerIndex);
 window.passTurn = () => {
     gameState.activeTurnSpaceChecked = true; 
     window.closeModal();

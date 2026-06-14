@@ -34,18 +34,40 @@ export const gameState = {
         import('./bankLogic.js').then(m => m.bankLogic.setupBoardClickListeners());
     },
 
-    changeTurn() {
-        // Reset turn action guards before switching pointers
-        this.activeTurnSpaceChecked = false;
+    // changeTurn() {
+    //     // Reset turn action guards before switching pointers
+    //     this.activeTurnSpaceChecked = false;
 
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
-        const p = this.players[this.currentPlayerIndex];
+    //     this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+    //     const p = this.players[this.currentPlayerIndex];
         
-        document.getElementById('status-msg').innerText = `${p.name}'s (${p.icon}) TURN`;
-        this.createHUDPanel();
-        this.renderSidebars();
-    },
+    //     document.getElementById('status-msg').innerText = `${p.name}'s (${p.icon}) TURN`;
+    //     this.createHUDPanel();
+    //     this.renderSidebars();
+    // },
 
+    // js/gameState.js
+changeTurn() {
+    // 1. Reset all state guards for the turn
+    this.activeTurnSpaceChecked = false;
+    this.activeTurnActionCompleted = false; 
+
+    // 2. Increment the index EXACTLY once
+    this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+    const nextPlayer = this.players[this.currentPlayerIndex];
+    
+    // 3. Update the core text status
+    const statusMsg = document.getElementById('status-msg');
+    if (statusMsg) {
+        statusMsg.innerText = `${nextPlayer.name}'s (${nextPlayer.icon}) TURN`;
+    }
+    
+    // 4. Refresh core panels
+    this.createHUDPanel();
+    this.renderSidebars();
+
+    return nextPlayer;
+},
     createHUDPanel() {
         let centerPiece = document.querySelector('.center-piece');
         let hud = document.getElementById('game-hud') || document.createElement('div');
@@ -62,72 +84,159 @@ export const gameState = {
         centerPiece.insertBefore(hud, centerPiece.firstChild);
     },
 
-   renderSidebars() {
-        const leftBox = document.getElementById('current-player-deeds');
-        const rightBox = document.getElementById('opponent-deeds-container');
-        if (!leftBox || !rightBox) return;
+renderSidebars() {
+    const leftBox = document.getElementById('current-player-deeds');
+    const rightBox = document.getElementById('opponent-deeds-container');
+    if (!leftBox || !rightBox) return;
 
-        leftBox.innerHTML = '';
-        rightBox.innerHTML = '';
+    // Clear previous renders cleanly
+    leftBox.innerHTML = '';
+    rightBox.innerHTML = '';
 
-        const activePlayer = this.players[this.currentPlayerIndex];
+    const activePlayer = this.players[this.currentPlayerIndex];
+    if (!activePlayer) return;
 
-        import('./data.js').then(({ boardData }) => {
-            this.players.forEach(p => {
-                const isCurrentPlayer = (p.id === activePlayer.id);
-                let sectionHTML = `<div class="player-sidebar-group"><h4>${p.icon} ${p.name} Assets</h4>`;
+    import('./data.js').then(({ boardData }) => {
+        
+        // Helper function to dynamically map space groups to CSS theme variables
+        const getCityColorVar = (space) => {
+            if (!space) return '#95a5a6';
+            const groupName = space.group ? space.group.toLowerCase().trim() : '';
+            
+            if (groupName.includes('mumbai'))    return 'var(--clr-mumbai, #00d2d3)';
+            if (groupName.includes('delhi'))     return 'var(--clr-delhi, #1dd1a1)';
+            if (groupName.includes('bengaluru')) return 'var(--clr-bengaluru, #feca57)';
+            if (groupName.includes('chennai'))   return 'var(--clr-chennai, #ff9f43)';
+            if (groupName.includes('kolkata'))   return 'var(--clr-kolkata, #ff9ff3)';
+            if (groupName.includes('pune'))      return 'var(--clr-pune, #ff6b6b)';
+            if (groupName.includes('transport')) return 'var(--clr-transport, #576574)';
+            if (groupName.includes('utility'))   return 'var(--clr-utility, #48dbfb)';
+            
+            return space.color || '#95a5a6';
+        };
+
+        // ==========================================
+        // 1. RENDER CURRENT PLAYER SIDEBAR (LEFT)
+        // ==========================================
+        let leftHTML = `
+            <div class="player-sidebar-group active-player-card">
+                <div class="sidebar-card-header">
+                    <h3>${activePlayer.icon} ${activePlayer.name} <span class="you-badge">(You)</span></h3>
+                    <span class="player-card-balance">₹${activePlayer.balance ? activePlayer.balance.toLocaleString() : '0'}</span>
+                </div>
+        `;
+
+        if (activePlayer.jailCards > 0) {
+            leftHTML += `<div class="jail-card-badge">🎟️ Jail Free Cards: ${activePlayer.jailCards} Held</div>`;
+        }
+
+        leftHTML += `<div class="sidebar-section-title">Your Deeds</div>`;
+
+        const activeDeeds = Object.keys(this.ownership)
+            .filter(k => this.ownership[k] === activePlayer.id)
+            .map(k => boardData[k]);
+
+        if (activeDeeds.length === 0) {
+            leftHTML += `<p class="none-text">No properties owned yet.</p>`;
+        } else {
+            activeDeeds.forEach(space => {
+                let houses = this.structures[space.id] || 0;
+                let structuralIcons = houses === 5 ? "🏨" : "🏡".repeat(houses);
+                let isMortgaged = this.mortgagedProperties[space.id];
+                let mortgageText = isMortgaged ? " <span class='mortgage-tag'>[MORTGAGED]</span>" : "";
                 
-                // --- 1. RENDER REAL ESTATE ASSETS ---
-                const propertiesOwned = Object.keys(this.ownership)
-                    .filter(k => this.ownership[k] === p.id)
-                    .map(k => boardData[k]);
+                let cityColor = getCityColorVar(space);
 
-                if (propertiesOwned.length === 0) {
-                    sectionHTML += `<p class="none-text">No real estate assets held.</p>`;
-                } else {
-                    propertiesOwned.forEach(space => {
-                        let houses = this.structures[space.id] || 0;
-                        let structuralIcons = houses === 5 ? "🏨" : "🏡".repeat(houses);
-                        let isMortgaged = this.mortgagedProperties[space.id];
+                leftHTML += `
+                    <div class="mini-deed-row" style="opacity: ${isMortgaged ? '0.5' : '1'};">
+                        <div class="deed-color-block" style="background: ${cityColor} !important;"></div>
                         
-                        let mortgageText = isMortgaged ? " <span style='color:#e74c3c;font-size:11px;'>[MORTGAGED]</span>" : "";
-                        
-                        sectionHTML += `
-                            <div class="mini-deed-row" style="border-left: 6px solid ${space.color || '#95a5a6'}; opacity: ${isMortgaged ? '0.5' : '1'}; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; padding: 4px;">
-                                <span>${space.name} ${structuralIcons}${mortgageText}</span>
-                                ${isCurrentPlayer && isMortgaged ? `
-                                    <button onclick="window.paybackMortgage(${space.id})" style="background:#2ecc71; color:white; border:none; padding:2px 6px; font-size:10px; border-radius:3px; cursor:pointer;">
-                                        Lift (₹${Math.round((parseInt(space.price.replace('k',''))*1000)/2 * 1.1).toLocaleString()})
-                                    </button>
-                                ` : ''}
-                            </div>
-                        `;
-                    });
-                }
-
-                // --- 2. RENDER ACTIVE LOANS (Only show if they have loans) ---
-                if (p.loans && p.loans.length > 0) {
-                    sectionHTML += `<h5 style="margin: 10px 0 5px 0; color: #c0392b;">Active Bank Loans</h5>`;
-                    p.loans.forEach((loan, loanIdx) => {
-                        sectionHTML += `
-                            <div style="display:flex; justify-content:space-between; align-items:center; background:#fdf2f2; padding:5px; margin-bottom:4px; border-radius:4px; font-size:12px;">
-                                <span>Loan: ₹${loan.principal.toLocaleString()}</span>
-                                ${isCurrentPlayer ? `
-                                    <button onclick="window.paybackLoan(${loanIdx})" style="background:#2980b9; color:white; border:none; padding:2px 6px; font-size:10px; border-radius:3px; cursor:pointer;">Pay Off</button>
-                                ` : ''}
-                            </div>
-                        `;
-                    });
-                }
-
-                sectionHTML += `</div>`;
-
-                if (isCurrentPlayer) {
-                    leftBox.innerHTML = sectionHTML; // Current player gets interactive buttons
-                } else {
-                    rightBox.innerHTML += sectionHTML; // Opponents are read-only
-                }
+                        <div class="deed-content-frame">
+                            <span class="deed-name-text">${space.name} ${structuralIcons}${mortgageText}</span>
+                            ${isMortgaged ? `
+                                <button onclick="window.paybackMortgage(${space.id})" class="lift-mortgage-btn">Lift</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
             });
+        }
+
+        if (activePlayer.loans && activePlayer.loans.length > 0) {
+            leftHTML += `<div class="sidebar-section-title loan-title">Active Loans</div>`;
+            activePlayer.loans.forEach((loan, loanIdx) => {
+                leftHTML += `
+                    <div class="loan-row">
+                        <span>Principal: ₹${loan.principal.toLocaleString()}</span>
+                        <button onclick="window.paybackLoan(${loanIdx})" class="loan-pay-btn">Pay Off</button>
+                    </div>
+                `;
+            });
+        }
+
+        leftHTML += `</div>`;
+        leftBox.innerHTML = leftHTML;
+
+        // ==========================================
+        // 2. RENDER OPPONENTS SIDEBAR (RIGHT)
+        // ==========================================
+        let rightHTML = '';
+
+        this.players.forEach(p => {
+            if (p.id === activePlayer.id) return;
+
+            rightHTML += `
+                <div class="player-sidebar-group opponent-player-card">
+                    <div class="sidebar-card-header">
+                        <h4>${p.icon} ${p.name}</h4>
+                        <span class="player-card-balance opponent-bal">₹${p.balance ? p.balance.toLocaleString() : '0'}</span>
+                    </div>
+            `;
+
+            if (p.jailCards > 0) {
+                rightHTML += `<div class="opponent-jail-badge">🎟️ Jail Free Cards: ${p.jailCards}</div>`;
+            }
+
+            const opponentDeeds = Object.keys(this.ownership)
+                .filter(k => this.ownership[k] === p.id)
+                .map(k => boardData[k]);
+
+            if (opponentDeeds.length === 0) {
+                rightHTML += `<p class="none-text">No assets held.</p>`;
+            } else {
+                opponentDeeds.forEach(space => {
+                    let isMortgaged = this.mortgagedProperties[space.id];
+                    let houses = this.structures[space.id] || 0;
+                    let structuralIcons = houses === 5 ? "🏨" : "🏡".repeat(houses);
+                    let mortgageText = isMortgaged ? " <span class='mortgage-tag'>[MORTGAGED]</span>" : "";
+                    
+                    let cityColor = getCityColorVar(space);
+
+                    rightHTML += `
+                        <div class="mini-deed-row" style="opacity: ${isMortgaged ? '0.5' : '1'};">
+                            <div class="deed-color-block" style="background: ${cityColor} !important;"></div>
+                            
+                            <div class="deed-content-frame">
+                                <span class="deed-name-text">${space.name} ${structuralIcons}${mortgageText}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            if (p.loans && p.loans.length > 0) {
+                let totalLoanDebt = p.loans.reduce((acc, curr) => acc + curr.principal, 0);
+                rightHTML += `<div class="opponent-debt-alert">⚠️ Total Debt: ₹${totalLoanDebt.toLocaleString()}</div>`;
+            }
+
+            rightHTML += `</div>`;
         });
-    }
+
+        if (rightHTML === '') {
+            rightHTML = `<p class="none-text center-text">No other competitors connected.</p>`;
+        }
+
+        rightBox.innerHTML = rightHTML;
+    });
+}
 };

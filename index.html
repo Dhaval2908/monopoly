@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Desi Business Premium</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -39,6 +40,8 @@
 
         <div id="game-board">
             <div class="center-piece">
+                <button id="rules-btn" class="rules-trigger-btn">📋 Game Rules</button>
+                
                 <div class="logo">DESI BUSINESS</div>
                 <div class="dice-area">
                     <div class="scene"><div id="cube1" class="cube"></div></div>
@@ -49,7 +52,7 @@
                 <p id="status-msg">PLAYER 1 (🛺) TURN</p>
                 <button onclick="window.openTradePanel()" class="action-btn-trade">🤝 Propose Trade</button>
             </div>
-            </div>
+        </div>
 
         <div id="right-portfolio" class="asset-sidebar">
             <h3>COMPETITORS</h3>
@@ -57,8 +60,35 @@
         </div>
     </div>
 
-    <div id="card-modal" style="display: none;" onclick="window.closeCardModal(event)">
+    <div id="card-modal" style="display: none;">
         <div class="detail-card" id="detail-card-content"></div>
+    </div>
+
+    <div id="rules-modal" class="custom-modal-overlay" style="display: none;">
+        <div class="rules-card-content">
+            <div class="rules-header">
+                <h2>📜 Desi Business Official Rules</h2>
+                <button id="close-rules-btn" class="close-rules-btn">×</button>
+            </div>
+            <div class="rules-body">
+                <div class="rule-section">
+                    <h3>📌 Basic Turn Mechanics</h3>
+                    <p>Roll the dice to move clockwise around the board. If you roll doubles, you get another turn. Rolling doubles three times in a row sends you directly to Jail.</p>
+                </div>
+                <div class="rule-section">
+                    <h3>🏢 Asset Acquisitions & Rent</h3>
+                    <p>Landing on an unowned city slot allows you to purchase it for the listed price. If owned, you must pay the owner the designated layout rent. Owning a complete color set allows you to begin building structures to scale up rents.</p>
+                </div>
+                <div class="rule-section">
+                    <h3>🛑 Mortgages & Liabilities</h3>
+                    <p>If you run low on capital, properties can be mortgaged for 50% of their base value. Mortgaged properties do not collect rent. To unmortgage, you must pay the principal value plus a 10% processing fee.</p>
+                </div>
+                <div class="rule-section">
+                    <h3>👮 The Rest House / Jail Loop</h3>
+                    <p>While in Jail, you cannot move. You can exit by rolling doubles on your turn, paying a ₹500 fine, or playing a "Get Out of Jail Free" ticket card.</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
