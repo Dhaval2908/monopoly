@@ -3,3 +3,5 @@ This is a test file to check if the .gitignore is working correctly. It should n
 /js/uimanager.txt
 This file contains the UI management logic for the Monopoly game. It should be tracked by git and any changes to it should be committed.    
 /js/bankLogic.txt   
+/js/main.txt
+index.txt

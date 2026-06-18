@@ -64,6 +64,87 @@
         <div class="detail-card" id="detail-card-content"></div>
     </div>
 
+    <div id="trade-modal" class="custom-modal-overlay" style="display: none;">
+        <div class="rules-card-content trade-card">
+            <div class="rules-header">
+                <h2>🤝 Propose Business Trade</h2>
+                <button id="close-trade-btn" class="close-rules-btn">×</button>
+            </div>
+            
+            <div id="trade-setup-view" class="rules-body">
+                <div class="trade-selector-row">
+                    <label for="trade-target-select">Select Trader Partner:</label>
+                    <select id="trade-target-select" class="trade-dropdown"></select>
+                </div>
+
+                <div class="trade-columns">
+                    <div class="trade-col">
+                        <h3 id="your-trade-title">Your Offer</h3>
+                        <div id="your-trade-assets" class="trade-asset-list"></div>
+                        <div class="trade-cash-input-wrap">
+                            <span>Add Cash: ₹</span>
+                            <input type="number" id="your-trade-cash" value="0" min="0">
+                        </div>
+                    </div>
+
+                    <div class="trade-col">
+                        <h3 id="their-trade-title">Their Assets</h3>
+                        <div id="their-trade-assets" class="trade-asset-list"></div>
+                        <div class="trade-cash-input-wrap">
+                            <span>Demand Cash: ₹</span>
+                            <input type="number" id="their-trade-cash" value="0" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="trade-advanced-conditions">
+                    <h3>✨ Advanced Deal Perks</h3>
+                    <div class="perks-grid">
+                        <div class="perk-card">
+                            <h4>Rent Profit-Share Partnership</h4>
+                            <label class="perk-input-label">
+                                Give Partner 
+                                <input type="number" id="trade-profit-share" value="0" min="0" max="100" step="5">% 
+                                of future rent collected on selected properties.
+                            </label>
+                        </div>
+
+                        <div class="perk-card">
+                            <h4>Rent-Free Grace Period</h4>
+                            <label class="perk-input-label">
+                                Grant Partner immunity from paying rent for the next 
+                                <input type="number" id="trade-rent-free" value="0" min="0" max="10"> 
+                                times they land on these traded spaces.
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="submit-trade-proposal-btn" class="trade-primary-btn">Send Proposal</button>
+            </div>
+
+            <div id="trade-review-view" class="rules-body" style="display: none;">
+                <div class="trade-review-summary">
+                    <h3 id="trade-review-headline">PROPOSAL REVIEW</h3>
+                    <div class="review-box-split">
+                        <div class="review-box">
+                            <h4>You will receive:</h4>
+                            <div id="review-receiving-list"></div>
+                        </div>
+                        <div class="review-box">
+                            <h4>You will give up:</h4>
+                            <div id="review-giving-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="trade-decision-actions">
+                    <button id="accept-trade-btn" class="trade-success-btn">Accept Deal</button>
+                    <button id="decline-trade-btn" class="trade-danger-btn">Decline Deal</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="rules-modal" class="custom-modal-overlay" style="display: none;">
         <div class="rules-card-content">
             <div class="rules-header">
@@ -92,5 +173,6 @@
     </div>
 
     <script type="module" src="js/main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </body>
 </html>

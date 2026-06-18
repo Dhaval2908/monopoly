@@ -62,24 +62,74 @@ export const bankLogic = {
     /**
      * Computes scaling tier rent metrics and routes funds to asset holders.
      */
-    payRent(player, ownerIndex, spaceIndex, priceNum, data) {
-        let baseRent = data.type === "property" ? Math.round(priceNum * 0.1) : 25000;
-        let houseCount = gameState.structures[spaceIndex] || 0;
-        
-        let finalRent = baseRent;
-        if (houseCount === 1) finalRent = baseRent * 3;
-        if (houseCount === 2) finalRent = baseRent * 9;
-        if (houseCount === 3) finalRent = baseRent * 25;
-        if (houseCount === 4) finalRent = baseRent * 40;
-        if (houseCount === 5) finalRent = baseRent * 50;
+   payRent(player, ownerIndex, spaceIndex, priceNum, data) {
+    let baseRent = data.type === "property" ? Math.round(priceNum * 0.1) : 25000;
+    let houseCount = gameState.structures[spaceIndex] || 0;
+    
+    // Calculate basic structural scale tier rent adjustments
+    let finalRent = baseRent;
+    if (houseCount === 1) finalRent = baseRent * 3;
+    if (houseCount === 2) finalRent = baseRent * 9;
+    if (houseCount === 3) finalRent = baseRent * 25;
+    if (houseCount === 4) finalRent = baseRent * 40;
+    if (houseCount === 5) finalRent = baseRent * 50;
 
+    const owner = gameState.players[ownerIndex];
+    const tenantId = player.id; // The unique ID of the landing player
+
+    // -------------------------------------------------------------
+    // PERK CHANGE 1: Check for Rent-Free Grace Period Immunity
+    // -------------------------------------------------------------
+    if (data.rentFreeAllowances && data.rentFreeAllowances[tenantId] > 0) {
+        data.rentFreeAllowances[tenantId]--; // Use up one token pass
+        
+        alert(`🎟️ Rent-Free Grace Period Triggered!\nYour partnership deal covers this visit to ${data.name}. You owe ₹0!\n(${data.rentFreeAllowances[tenantId]} free visits remaining).`);
+        
+        window.closeModal();
+        this.endTurnSequence();
+        return; // Halt execution early - no money changes hands!
+    }
+
+    // -------------------------------------------------------------
+    // PERK CHANGE 2: Check for Rent Profit-Share Partnership Splits
+    // -------------------------------------------------------------
+    if (data.profitSharePercentage > 0 && data.profitSharePartnerId) {
+        const partnerIndex = gameState.players.findIndex(p => p.id === data.profitSharePartnerId);
+        
+        // Split the money using the agreed percentages
+        const partnerCut = Math.floor(finalRent * (data.profitSharePercentage / 100));
+        const ownerCut = finalRent - partnerCut;
+
+        // Execute payment deduction step for landing player
+        player.balance -= finalRent;
+
+        // Distribute dividends to both partners safely
+        owner.balance += ownerCut;
+        if (partnerIndex !== -1) {
+            gameState.players[partnerIndex].balance += partnerCut;
+        }
+
+        const partner = gameState.players.find(p => p.id === data.profitSharePartnerId);
+        alert(`📊 Venture Dividend Split Alert!\nLanded on ${data.name}. Rent: ₹${finalRent.toLocaleString()}.\n\n` + 
+              `🏢 Owner ${owner.name} receives: ₹${ownerCut.toLocaleString()}\n` + 
+              `🤝 Partner ${partner.name} receives (${data.profitSharePercentage}%): ₹${partnerCut.toLocaleString()}`);
+        
+        // Refresh your board balances HUD layout metrics
+        this.updateHUDDisplay(); 
+        window.closeModal();
+        this.endTurnSequence();
+    } 
+    else {
+        // -------------------------------------------------------------
+        // STANDARD FLOW: Standard execution if no trade deals exist
+        // -------------------------------------------------------------
         this.processPayment(gameState.currentPlayerIndex, ownerIndex, finalRent, () => {
-            const owner = gameState.players[ownerIndex];
             alert(`💥 Rent Notice!\nLanded on ${data.name}. Paid ₹${finalRent.toLocaleString()} to ${owner.name}!`);
             window.closeModal(); 
             this.endTurnSequence();
         });
-    },
+    }
+},
 
     /**
      * Purchases unowned properties from the bank.
@@ -102,6 +152,7 @@ export const bankLogic = {
         this.processPayment(gameState.currentPlayerIndex, null, priceNum, () => {
             // Assign ownership permanently
             gameState.ownership[spaceIndex] = gameState.currentPlayerIndex;
+            
 
             // Update physical UI board map layout
             const spaceEl = document.getElementById(`space-${spaceIndex}`);

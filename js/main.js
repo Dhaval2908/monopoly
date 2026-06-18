@@ -94,7 +94,6 @@ function setupGlobalEvents() {
             if (gameState.isMoving) return;
             const d1 = Math.floor(Math.random() * 6) + 1;
             const d2 = Math.floor(Math.random() * 6) + 1;
-            
             animateDice(d1, d2, () => {
                 handleDiceRoll(d1, d2);
             });
@@ -125,6 +124,26 @@ function setupGlobalEvents() {
     if (closeRulesBtn) {
         closeRulesBtn.onclick = closeRulesWindow;
     }
+
+    const closeTradeBtn = document.getElementById('close-trade-btn');
+    if (closeTradeBtn) closeTradeBtn.onclick = () => tradeLogic.closePanel();
+
+    const submitProposalBtn = document.getElementById('submit-trade-proposal-btn');
+    if (submitProposalBtn) submitProposalBtn.onclick = () => tradeLogic.processProposal();
+
+    const acceptTradeBtn = document.getElementById('accept-trade-btn');
+    if (acceptTradeBtn) acceptTradeBtn.onclick = () => tradeLogic.executeTradeDeal();
+
+    const declineTradeBtn = document.getElementById('decline-trade-btn');
+    if (declineTradeBtn) {
+        declineTradeBtn.onclick = () => {
+            alert("❌ Trade proposal declined by business partner.");
+            tradeLogic.closePanel();
+        };
+    }
+    // Expose trade open context explicitly to match your index.html launcher button assignment
+    window.openTradePanel = () => tradeLogic.openPanel();
+
 }
 
 function closeRulesWindow() {
@@ -159,46 +178,100 @@ document.addEventListener('DOMContentLoaded', () => {
 export function handleDiceRoll(d1, d2) {
     const player = gameState.players[gameState.currentPlayerIndex];
     const isDouble = (d1 === d2);
+    const rollTotal = d1 + d2;
 
+    // ==========================================
+    // 1. HANDLE JAIL ESCAPE LOGIC (IF JAILED)
+    // ==========================================
     if (player.isJailed) {
         if (isDouble) {
             player.isJailed = false;
             player.jailTurns = 0;
-            alert("🎲 Double rolled! You break out of Jail for free!");
+            alert("🎲 Double rolled! You break out of Jail! Moving forward.");
             gameState.consecutiveDoubles = 0; 
-            movePlayer(d1 + d2);
+            gameState.lastDoubleValue = null;
+            gameState.accumulatedSteps = rollTotal;
+            executeStackedMove();
         } else {
             player.jailTurns++;
             if (player.jailTurns >= 3) {
                 player.balance -= 50000; 
                 player.isJailed = false;
                 player.jailTurns = 0;
-                alert("👮 3 Rounds spent in Jail! Forced to pay a fine of ₹50,000. Proceeding with roll movement.");
-                bankLogic.updateHUDDisplay();
-                movePlayer(d1 + d2);
+                alert("👮 3 Rounds in Jail! Forced to pay ₹50,000 fine. Moving forward.");
+                if (bankLogic && typeof bankLogic.updateHUDDisplay === 'function') bankLogic.updateHUDDisplay();
+                gameState.accumulatedSteps = rollTotal;
+                executeStackedMove();
             } else {
                 alert(`🔒 No double rolled. Turn ${player.jailTurns}/3 spent in isolation.`);
                 gameState.consecutiveDoubles = 0;
-                bankLogic.endTurnSequence();
+                gameState.lastDoubleValue = null;
+                gameState.accumulatedSteps = 0;
+                if (bankLogic && typeof bankLogic.endTurnSequence === 'function') bankLogic.endTurnSequence();
             }
         }
-        return;
+        return; // Exit out early since they are in jail
     }
+
+    // ==========================================
+    // 2. NORMAL TURN LOGIC (NOT JAILED)
+    // ==========================================
+    
+    // Stack current roll total into our global game state step counter
+    gameState.accumulatedSteps += rollTotal;
 
     if (isDouble) {
-        gameState.consecutiveDoubles++;
-        if (gameState.consecutiveDoubles === 3) {
-            alert("🚓 Reckless Speeding! You rolled 3 consecutive doubles. Go directly to Jail!");
+        // Track consecutive identical double combinations
+        if (gameState.lastDoubleValue === null) {
+            // First double of this chain
+            gameState.consecutiveDoubles = 1;
+            gameState.lastDoubleValue = rollTotal;
+        } else if (gameState.lastDoubleValue === rollTotal) {
+            // It matches the previous double! Increment streak count
+            gameState.consecutiveDoubles += 1;
+        } else {
+            // It's a double, but a different face value (e.g., 2&2 after 3&3)
+            // Reset streak back to 1, but save this new number!
+            gameState.consecutiveDoubles = 1;
+            gameState.lastDoubleValue = rollTotal;
+        }
+        
+        // This will print to your console now!
+        console.log(`🎯 Double Detected! Combo Total: ${rollTotal} (${d1}&${d2}), Streak Count: ${gameState.consecutiveDoubles}`);
+
+        // Trigger jail instantly when they hit exactly 3 identical combos
+        if (gameState.consecutiveDoubles >= 3) {
+            alert(`🚓 Triple ${d1}s rolled consecutively! Speeding violation! Go directly to Jail.`);
+            
+            // Wipe everything clean
             gameState.consecutiveDoubles = 0;
-            bankLogic.sendToJail(player);
+            gameState.lastDoubleValue = null;
+            gameState.accumulatedSteps = 0; 
+            
+            if (bankLogic && typeof bankLogic.sendToJail === 'function') {
+                bankLogic.sendToJail(player);
+            }
             return;
         }
-        alert(`🎲 Double Rolled! (Streak: ${gameState.consecutiveDoubles}). Take another turn after this walk!`);
-    } else {
-        gameState.consecutiveDoubles = 0;
+
+        alert(`🎲 Double Rolled (${d1}&${d2})! Stacked Total: ${gameState.accumulatedSteps} spaces. Roll your BONUS dice!`);
+        return; // Return early so they can roll again without moving yet
     }
 
-    movePlayer(d1 + d2);
+    // If we reach this point, they rolled a normal pair (or completed their streak sequence)
+    executeStackedMove();
+}
+
+// Internal helper to trigger movement after all dice sequences finish stacking
+function executeStackedMove() {
+    const totalMoveAmount = gameState.accumulatedSteps;
+    
+    // Clear state counters before executing movement animations to prevent racing loops
+    gameState.consecutiveDoubles = 0;
+    gameState.accumulatedSteps = 0; 
+
+    console.log(`🚀 Rolling chain finished! Moving total of ${totalMoveAmount} spaces.`);
+    movePlayer(totalMoveAmount);
 }
 
 window.payJailFine = () => {

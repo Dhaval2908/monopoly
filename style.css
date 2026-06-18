@@ -723,3 +723,210 @@ body {
     75% { transform: scale(1.05, 0.95) rotate(2deg); }
     100% { transform: scale(1) rotate(-2deg); }
 }
+
+/* ==========================================================================
+   INTERACTIVE TRADE INTERFACE LAYOUT
+   ========================================================================== */
+.trade-card {
+    max-width: 650px !important;
+}
+
+.trade-selector-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #f8fafc;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.trade-selector-row label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.trade-dropdown {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    font-weight: 600;
+    color: #334155;
+}
+
+.trade-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.trade-col {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 14px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.trade-col h3 {
+    margin: 0 0 4px 0;
+    font-size: 13px;
+    color: #0f172a;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 4px;
+}
+
+.trade-asset-list {
+    max-height: 150px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+}
+
+.trade-item-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    background: #fff;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+}
+
+.trade-cash-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #334155;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+}
+
+.trade-cash-input-wrap input {
+    width: 100%;
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.trade-primary-btn, .trade-success-btn, .trade-danger-btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.trade-primary-btn { background: #db2777; color: white; }
+.trade-primary-btn:hover { background: #be185d; }
+
+/* Review Phase Architecture Styles */
+.trade-review-summary {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 16px;
+    border-radius: 10px;
+}
+#trade-review-headline {
+    margin: 0 0 12px 0;
+    text-align: center;
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: #0f172a;
+}
+.review-box-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+.review-box {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+.review-box h4 { margin: 0 0 6px 0; font-size: 12px; color: #64748b; }
+.review-item { font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+
+.trade-decision-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.trade-success-btn { background: #10b981; color: white; }
+.trade-success-btn:hover { background: #059669; }
+.trade-danger-btn { background: #ef4444; color: white; }
+.trade-danger-btn:hover { background: #dc2626; }
+/* ==========================================================================
+   ADVANCED TRADE DEAL PERKS SYSTEM
+   ========================================================================== */
+.trade-advanced-conditions {
+    background: #f1f5f9;
+    border: 1px dashed #cbd5e1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+.trade-advanced-conditions h3 {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: #0f172a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.perks-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.perk-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.perk-card h4 {
+    margin: 0 0 6px 0;
+    font-size: 11px;
+    color: #db2777;
+    font-weight: 700;
+}
+
+.perk-input-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.perk-input-label input {
+    width: 55px;
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    font-weight: 700;
+    text-align: center;
+    color: #0f172a;
+}

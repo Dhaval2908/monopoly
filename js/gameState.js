@@ -4,6 +4,7 @@ export const gameState = {
     currentPlayerIndex: 0,
     isMoving: false,
     ownership: {},
+    accumulatedSteps: 0,
     structures: {},
     
     // NEW TRACKING ENGINES
@@ -68,21 +69,25 @@ changeTurn() {
 
     return nextPlayer;
 },
-    createHUDPanel() {
-        let centerPiece = document.querySelector('.center-piece');
-        let hud = document.getElementById('game-hud') || document.createElement('div');
-        hud.id = 'game-hud';
-        hud.innerHTML = '';
-        
-        this.players.forEach((p, idx) => {
-            hud.innerHTML += `
-                <div class="hud-item ${idx === this.currentPlayerIndex ? 'active' : ''}" id="leaderboard-row-${p.id}">
-                    <span>${p.icon} <b>${p.name}</b>: <span class="hud-bal">₹${p.balance.toLocaleString()}</span></span>
-                </div>
-            `;
-        });
-        centerPiece.insertBefore(hud, centerPiece.firstChild);
-    },
+   createHUDPanel() {
+    const parent = document.querySelector('.center-piece-controls') || document.getElementById('board-ui-overlay-container');
+    if (!parent) return; // Safety guard clause
+
+    let hud = document.getElementById('game-hud') || document.createElement('div');
+    hud.id = 'game-hud';
+    hud.innerHTML = '';
+    
+    this.players.forEach((p, idx) => {
+        hud.innerHTML += `
+            <div class="hud-item ${idx === this.currentPlayerIndex ? 'active' : ''}" id="leaderboard-row-${p.id}">
+                <span>${p.icon} <b>${p.name}</b>: <span class="hud-bal">₹${p.balance.toLocaleString()}</span></span>
+            </div>
+        `;
+    });
+
+    // 🌟 FIXED: Use 'parent' instead of the undefined 'centerPiece'
+    parent.insertBefore(hud, parent.firstChild);
+},
 
 renderSidebars() {
     const leftBox = document.getElementById('current-player-deeds');
