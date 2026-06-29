@@ -6,6 +6,7 @@ export const gameState = {
     ownership: {},
     accumulatedSteps: 0,
     structures: {},
+    contracts: {}, // Track contracts for each property
     
     // NEW TRACKING ENGINES
     mortgagedProperties: {}, 

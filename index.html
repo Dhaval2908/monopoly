@@ -97,30 +97,35 @@
                     </div>
                 </div>
 
-                <div class="trade-advanced-conditions">
-                    <h3>✨ Advanced Deal Perks</h3>
-                    <div class="perks-grid">
-                        <div class="perk-card">
-                            <h4>Rent Profit-Share Partnership</h4>
-                            <label class="perk-input-label">
-                                Give Partner 
-                                <input type="number" id="trade-profit-share" value="0" min="0" max="100" step="5">% 
-                                of future rent collected on selected properties.
-                            </label>
+                <!-- 🛠️ Dynamic Multi-Property Covenant Panel -->
+                <div class="trade-contract-container" style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-top: 14px; border: 1px solid #cbd5e1;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #1e293b;">📜 Add Partnership Covenants</h4>
+                    
+                    <!-- Dynamic List Container where added rules will map visually -->
+                    <div id="active-covenants-list" style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;"></div>
+                    
+                    <div style="background: #ffffff; padding: 10px; border-radius: 6px; border: 1px dashed #cbd5e1;">
+                        <div style="margin-bottom: 8px;">
+                            <label style="font-size: 11px; color: #475569; display:block; margin-bottom: 4px;">Target Property:</label>
+                            <select id="contract-property-select" class="trade-dropdown" style="width: 100%; padding: 6px; font-size: 12px; border-radius: 4px; border: 1px solid #cbd5e1; background: #fff;"></select>
                         </div>
 
-                        <div class="perk-card">
-                            <h4>Rent-Free Grace Period</h4>
-                            <label class="perk-input-label">
-                                Grant Partner immunity from paying rent for the next 
-                                <input type="number" id="trade-rent-free" value="0" min="0" max="10"> 
-                                times they land on these traded spaces.
+                        <div style="display: flex; gap: 12px; margin-bottom: 8px;">
+                            <label style="font-size: 11px; color: #475569; flex: 1;">
+                                📊 Profit Share %:
+                                <input type="number" id="contract-profit-share" value="0" min="0" max="100" style="width: 100%; padding: 6px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
+                            </label>
+                            <label style="font-size: 11px; color: #475569; flex: 1;">
+                                🎟️ Rent-Free Visits:
+                                <input type="number" id="contract-rent-free" value="0" min="0" style="width: 100%; padding: 6px; margin-top: 4px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
                             </label>
                         </div>
+                        
+                        <button type="button" id="add-covenant-row-btn" class="trade-secondary-btn" style="width: 100%; background: #0284c7; color: white; border: none; padding: 6px; font-size: 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">＋ Add Covenant Term</button>
                     </div>
                 </div>
 
-                <button id="submit-trade-proposal-btn" class="trade-primary-btn">Send Proposal</button>
+                <button id="submit-trade-proposal-btn" class="trade-primary-btn" style="margin-top: 14px;">Send Proposal</button>
             </div>
 
             <div id="trade-review-view" class="rules-body" style="display: none;">

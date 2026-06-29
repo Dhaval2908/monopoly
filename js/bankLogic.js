@@ -62,11 +62,10 @@ export const bankLogic = {
     /**
      * Computes scaling tier rent metrics and routes funds to asset holders.
      */
-   payRent(player, ownerIndex, spaceIndex, priceNum, data) {
+payRent(player, ownerIndex, spaceIndex, priceNum, data) {
     let baseRent = data.type === "property" ? Math.round(priceNum * 0.1) : 25000;
     let houseCount = gameState.structures[spaceIndex] || 0;
     
-    // Calculate basic structural scale tier rent adjustments
     let finalRent = baseRent;
     if (houseCount === 1) finalRent = baseRent * 3;
     if (houseCount === 2) finalRent = baseRent * 9;
@@ -74,51 +73,54 @@ export const bankLogic = {
     if (houseCount === 4) finalRent = baseRent * 40;
     if (houseCount === 5) finalRent = baseRent * 50;
 
+ 
+
+    // 💡 THE MASTER FIX: Safely retrieve active contract metrics directly from gameState
+    const activeContract = (gameState.contracts && data) ? gameState.contracts[data.id] : null;
+    
+    console.log("Active Contract Payload Lookup:", activeContract); // 🔍 Diagnostic line
+
     const owner = gameState.players[ownerIndex];
-    const tenantId = player.id; // The unique ID of the landing player
+    const tenantId = String(player.id); // Force string matching context for key maps
 
     // -------------------------------------------------------------
-    // PERK CHANGE 1: Check for Rent-Free Grace Period Immunity
+    // PERK CHANGE 1: Rent-Free Grace Period Check
     // -------------------------------------------------------------
-    if (data.rentFreeAllowances && data.rentFreeAllowances[tenantId] > 0) {
-        data.rentFreeAllowances[tenantId]--; // Use up one token pass
+    if (activeContract && activeContract.rentFreeAllowances && activeContract.rentFreeAllowances[tenantId] > 0) {
+        activeContract.rentFreeAllowances[tenantId]--; // Use token pass
         
-        alert(`🎟️ Rent-Free Grace Period Triggered!\nYour partnership deal covers this visit to ${data.name}. You owe ₹0!\n(${data.rentFreeAllowances[tenantId]} free visits remaining).`);
+        alert(`🎟️ Rent-Free Grace Period Triggered!\nYour partnership deal covers this visit to ${data.name}. You owe ₹0!\n(${activeContract.rentFreeAllowances[tenantId]} free visits remaining).`);
         
         window.closeModal();
         this.endTurnSequence();
-        return; // Halt execution early - no money changes hands!
+        return; 
     }
 
     // -------------------------------------------------------------
-    // PERK CHANGE 2: Check for Rent Profit-Share Partnership Splits
+    // PERK CHANGE 2: Rent Profit-Share Split Check
     // -------------------------------------------------------------
-    if (data.profitSharePercentage > 0 && data.profitSharePartnerId) {
-        const partnerIndex = gameState.players.findIndex(p => p.id === data.profitSharePartnerId);
+    if (activeContract && activeContract.profitSharePercentage > 0 && activeContract.profitSharePartnerId !== undefined) {
+        const partnerIndex = gameState.players.findIndex(p => Number(p.id) === Number(activeContract.profitSharePartnerId));
         
-        // Split the money using the agreed percentages
-        const partnerCut = Math.floor(finalRent * (data.profitSharePercentage / 100));
-        const ownerCut = finalRent - partnerCut;
-
-        // Execute payment deduction step for landing player
-        player.balance -= finalRent;
-
-        // Distribute dividends to both partners safely
-        owner.balance += ownerCut;
         if (partnerIndex !== -1) {
-            gameState.players[partnerIndex].balance += partnerCut;
-        }
+            const partnerCut = Math.floor(finalRent * (activeContract.profitSharePercentage / 100));
+            const ownerCut = finalRent - partnerCut;
 
-        const partner = gameState.players.find(p => p.id === data.profitSharePartnerId);
-        alert(`📊 Venture Dividend Split Alert!\nLanded on ${data.name}. Rent: ₹${finalRent.toLocaleString()}.\n\n` + 
-              `🏢 Owner ${owner.name} receives: ₹${ownerCut.toLocaleString()}\n` + 
-              `🤝 Partner ${partner.name} receives (${data.profitSharePercentage}%): ₹${partnerCut.toLocaleString()}`);
-        
-        // Refresh your board balances HUD layout metrics
-        this.updateHUDDisplay(); 
-        window.closeModal();
-        this.endTurnSequence();
-    } 
+            player.balance -= finalRent;
+            owner.balance += ownerCut;
+            gameState.players[partnerIndex].balance += partnerCut;
+
+            const partner = gameState.players[partnerIndex];
+            alert(`📊 Venture Dividend Split Alert!\nLanded on ${data.name}. Rent: ₹${finalRent.toLocaleString()}.\n\n` + 
+                  `🏢 Owner ${owner.name} receives: ₹${ownerCut.toLocaleString()}\n` + 
+                  `🤝 Partner ${partner.name} receives (${activeContract.profitSharePercentage}%): ₹${partnerCut.toLocaleString()}`);
+            
+            this.updateHUDDisplay(); 
+            window.closeModal();
+            this.endTurnSequence();
+            return;
+        }
+    }
     else {
         // -------------------------------------------------------------
         // STANDARD FLOW: Standard execution if no trade deals exist
@@ -130,7 +132,6 @@ export const bankLogic = {
         });
     }
 },
-
     /**
      * Purchases unowned properties from the bank.
      */

@@ -84,16 +84,44 @@ export function showCardDetail(data, isLandedAction = false) {
         const randomCard = deck[Math.floor(Math.random() * deck.length)];
         const cardThemeColor = isLuck ? "#8e44ad" : "#c0392b";
         
-        if (isLandedAction) {
-            activeLandedCard = randomCard;
-            isActiveCardLuck = isLuck;
-            
-            window.executeLandedCardAction = () => {
-                bankLogic.applyCardFinancials(activeLandedCard, isActiveCardLuck);
-                // window.forceNextTurn(); 
-            };
+       if (isLandedAction) {
+    activeLandedCard = randomCard;
+    isActiveCardLuck = isLuck;
+    
+    // 💡 PRIVATE TRACKING FLAG (Closure Scope)
+    // This variable lives privately inside this card creation instance.
+    // It remains 'false' until the card action is actually triggered.
+    let cardActionProcessed = false;
+    
+    window.executeLandedCardAction = () => {
+        
+        // 🛡️ STEP 1: SELF-BLOCKING GUARD (Prevents Double Execution)
+        // If this specific card's code is already running (or has finished running),
+        // we bounce out immediately. This protects us if the function gets executed
+        // simultaneously by a rapid button-mash and a background-click.
+        if (cardActionProcessed) {
+            console.log("Luck/Fate card action already executed. Ignoring duplicate execution.");
+            return;
         }
 
+        // 📝 STEP 2: LOCK THE IN-PROGRESS STATE
+        // We flip this flag to 'true' instantly before executing any heavy game logic.
+        // Even if the global window variable gets set to 'null' by an outside script,
+        // this private 'cardActionProcessed' tracking tag stays safely 'true'.
+        cardActionProcessed = true;
+        
+        // 🧹 STEP 3: DISARM GLOBAL ACCESS
+        // We delete the function from the global 'window' object right now.
+        // If the background overlay script tries to check for an action a millisecond later,
+        // it will see 'null' and realize the card has already been dealt with.
+        window.executeLandedCardAction = null; 
+        
+        // 💰 STEP 4: TRIGGER TRANSACTION & TURN ROTATION
+        // Now that all duplicate safety guards are completely locked, it is 100% safe to 
+        // add/subtract money and transition the game to the next player's turn.
+        bankLogic.applyCardFinancials(activeLandedCard, isActiveCardLuck); 
+    };
+}
         detailHTML = `
             <div class="detail-header" style="background: ${cardThemeColor}; color: #fff; padding: 15px; text-align: center;">
                 <h2 style="margin: 0; color: #fff;">${randomCard.icon} ${randomCard.title}</h2>
@@ -472,7 +500,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modal) {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
-                window.closeModal();
+               // 1. Check if an active Luck/Fate card is waiting
+                if (typeof window.executeLandedCardAction === 'function') {
+                    console.log("Luck/Fate card closed via background. Auto-executing action...");
+                    
+                    const actionToRun = window.executeLandedCardAction;
+                    window.executeLandedCardAction = null; // Disarm immediately
+                    
+                    actionToRun(); // This runs financial logic, which safely closes the modal internally!
+                } 
+                // 2. Otherwise, treat it like a normal property background click
+                else {
+                    window.closeModal();
+                }
             }
         });
     }
