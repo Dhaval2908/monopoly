@@ -19,7 +19,7 @@ export const tradeLogic = {
 
         this.populatePartnersList();
         this.renderAssetSelection();
-        this.populateContractPropertyDropdown(); // Initial population
+        this.populateContractPropertyDropdown(); 
         this.setupCovenantButtonAction(); 
 
         modal.style.display = 'flex';
@@ -88,7 +88,7 @@ export const tradeLogic = {
         if (yourAssetsContainer.innerHTML === '') yourAssetsContainer.innerHTML = '<div class="empty-text">No assets owned</div>';
         if (theirAssetsContainer.innerHTML === '') theirAssetsContainer.innerHTML = '<div class="empty-text">No assets owned</div>';
 
-        // 💡 Listen for changes on checkboxes to instantly recalculate valid dropdown options
+        // Listen for checkbox changes to update labels dynamically without wiping out retained properties
         const checkboxes = document.querySelectorAll('.asset-transfer-checkbox');
         checkboxes.forEach(cb => {
             cb.addEventListener('change', () => {
@@ -109,66 +109,100 @@ export const tradeLogic = {
         return label;
     },
 
-    // 💡 UI Optimization: Dynamically controls options based on what properties are changing hands
     populateContractPropertyDropdown() {
         const select = document.getElementById('contract-property-select');
         if (!select) return;
         
-        // Save the currently selected value so it doesn't jump around while checking cards
         const previousSelection = select.value;
         select.innerHTML = '<option value="">-- Choose Property --</option>';
 
         const activePlayerIndex = gameState.currentPlayerIndex;
+        const activePlayerId = gameState.players[activePlayerIndex].id;
         const targetId = parseInt(document.getElementById('trade-target-select').value);
+        const targetPlayerIndex = gameState.players.findIndex(p => p.id === targetId);
 
-        // Figure out what cards are selected to change owners right now
-        const checkedAssets = Array.from(document.querySelectorAll('.asset-transfer-checkbox:checked')).map(cb => parseInt(cb.value));
+        // Find out what is actively checked for deed transfer
+        const yourCheckedOffered = Array.from(document.getElementById('your-trade-assets').querySelectorAll('.asset-transfer-checkbox:checked')).map(cb => parseInt(cb.value));
+        const theirCheckedDemanded = Array.from(document.getElementById('their-trade-assets').querySelectorAll('.asset-transfer-checkbox:checked')).map(cb => parseInt(cb.value));
 
         boardData.forEach((space, index) => {
             const currentOwnerIndex = gameState.ownership[index];
-            if (currentOwnerIndex !== activePlayerIndex && currentOwnerIndex !== targetId) return;
-
-            const isChangingHands = checkedAssets.includes(space.id);
             
-            // Determine who WILL own the property after this deal processes
+            // Limit choices strictly to items owned by the two players currently making the transaction
+            if (Number(currentOwnerIndex) !== Number(activePlayerIndex) && Number(currentOwnerIndex) !== Number(targetPlayerIndex)) return;
+
             let futureOwnerId;
             let statusLabel = "";
 
-            if (currentOwnerIndex === activePlayerIndex) {
-                // Yours originally
-                futureOwnerId = isChangingHands ? targetId : gameState.players[activePlayerIndex].id;
-                statusLabel = isChangingHands ? "Giving to Them" : "Keeping Yours";
+            if (Number(currentOwnerIndex) === Number(activePlayerIndex)) {
+                // Property is yours
+                if (yourCheckedOffered.includes(space.id)) {
+                    futureOwnerId = targetId;
+                    statusLabel = "Giving to Them";
+                } else {
+                    futureOwnerId = activePlayerId;
+                    statusLabel = "Keeping (Your Asset)";
+                }
             } else {
-                // Theirs originally
-                futureOwnerId = isChangingHands ? gameState.players[activePlayerIndex].id : targetId;
-                statusLabel = isChangingHands ? "Taking to Yours" : "Staying Theirs";
+                // Property is theirs
+                if (theirCheckedDemanded.includes(space.id)) {
+                    futureOwnerId = activePlayerId;
+                    statusLabel = "Taking to Yours";
+                } else {
+                    futureOwnerId = targetId;
+                    statusLabel = "They Keep (Their Asset)";
+                }
             }
 
-            // Create option item
             const opt = document.createElement('option');
             opt.value = space.id;
-            opt.dataset.futureOwnerId = futureOwnerId; // Store metadata safely
-            opt.innerText = `${space.name} [⚡ ${statusLabel}]`;
+            opt.dataset.futureOwnerId = futureOwnerId; 
+            opt.innerText = `${space.name} [${statusLabel}]`;
             
             select.appendChild(opt);
         });
 
-        // Restore selection if it still exists
-        if (previousSelection) {
+        if (previousSelection && select.querySelector(`option[value="${previousSelection}"]`)) {
             select.value = previousSelection;
         }
+    },
+
+    syncCovenantUIList() {
+        const displayList = document.getElementById('active-covenants-list');
+        if (!displayList) return;
+        displayList.innerHTML = '';
+
+        this.proposedCovenants.forEach(c => {
+            const row = document.createElement('div');
+            row.id = `cov-item-row-${c.propertyId}`;
+            row.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 6px 10px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 11px; margin-bottom:4px;";
+            
+            let labelText = `📍 <b>${c.propertyName}</b>: `;
+            if (c.profitShare > 0) labelText += `📊 ${c.profitShare}% Split `;
+            if (c.rentFreeTurns > 0) labelText += `🎟️ ${c.rentFreeTurns}x Free `;
+
+            row.innerHTML = `
+                <span>${labelText}</span>
+                <button type="button" style="background:none; border:none; color:#ef4444; font-weight:bold; cursor:pointer; font-size:14px; padding:0 4px;">×</button>
+            `;
+
+            row.querySelector('button').onclick = () => {
+                this.proposedCovenants = this.proposedCovenants.filter(cov => cov.propertyId !== c.propertyId);
+                row.remove();
+            };
+            displayList.appendChild(row);
+        });
     },
 
     setupCovenantButtonAction() {
         const addBtn = document.getElementById('add-covenant-row-btn');
         if (!addBtn) return;
 
-        addBtn.onclick = null; // Unbind
+        addBtn.onclick = null; 
         addBtn.onclick = () => {
             const propertySelect = document.getElementById('contract-property-select');
             const profitInput = document.getElementById('contract-profit-share');
             const rentFreeInput = document.getElementById('contract-rent-free');
-            const displayList = document.getElementById('active-covenants-list');
 
             const propId = parseInt(propertySelect.value);
             if (!propId) {
@@ -180,60 +214,36 @@ export const tradeLogic = {
             const rentFreeTurns = parseInt(rentFreeInput.value) || 0;
 
             if (profitShare === 0 && rentFreeTurns === 0) {
-                alert("Please specify a Profit Share % or Rent-Free count to establish a deal covenant.");
+                alert("Please specify a Profit Share % or Rent-Free count.");
                 return;
             }
 
             if (this.proposedCovenants.some(c => c.propertyId === propId)) {
-                alert("A condition clause has already been appended to this property. Delete it below to override.");
+                alert("A condition clause has already been appended to this property.");
                 return;
             }
 
             const targetProp = boardData.find(s => s.id === propId);
-            
-            // Grab future metadata from our dynamic options selector!
             const selectedOpt = propertySelect.options[propertySelect.selectedIndex];
             const futureOwnerId = parseInt(selectedOpt.dataset.futureOwnerId);
             
             const activePlayerId = gameState.players[gameState.currentPlayerIndex].id;
             const targetId = parseInt(document.getElementById('trade-target-select').value);
 
-            // 💡 Smart Core Calculation Logic: 
-            // The person receiving the benefit/perk is always the person who does NOT own the land!
+            // Beneficiary is whoever DOES NOT own the asset at the end of the deal
             const beneficiaryId = (futureOwnerId === activePlayerId) ? targetId : activePlayerId;
-            const partnerId = beneficiaryId; 
 
-            const covenantData = {
+            this.proposedCovenants.push({
                 propertyId: propId,
                 propertyName: targetProp.name,
                 futureOwnerId: futureOwnerId,
                 beneficiaryId: beneficiaryId,
-                partnerId: partnerId,
+                partnerId: beneficiaryId,
                 profitShare: Math.min(100, Math.max(0, profitShare)),
                 rentFreeTurns: Math.max(0, rentFreeTurns)
-            };
+            });
 
-            this.proposedCovenants.push(covenantData);
-
-            const row = document.createElement('div');
-            row.id = `cov-item-row-${propId}`;
-            row.style.cssText = "display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 6px 10px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 11px;";
-            
-            let labelText = `📍 <b>${targetProp.name}</b>: `;
-            if (profitShare > 0) labelText += `📊 ${profitShare}% Split `;
-            if (rentFreeTurns > 0) labelText += `🎟️ ${rentFreeTurns}x Free `;
-
-            row.innerHTML = `
-                <span>${labelText}</span>
-                <button type="button" style="background:none; border:none; color:#ef4444; font-weight:bold; cursor:pointer; font-size:14px; padding:0 4px;">×</button>
-            `;
-
-            row.querySelector('button').onclick = () => {
-                this.proposedCovenants = this.proposedCovenants.filter(c => c.propertyId !== propId);
-                row.remove();
-            };
-
-            displayList.appendChild(row);
+            this.syncCovenantUIList();
 
             propertySelect.value = "";
             profitInput.value = "0";
@@ -258,8 +268,8 @@ export const tradeLogic = {
         }
 
         this.currentProposal = {
-            proposer: activePlayer,
-            receiver: targetPlayer,
+            proposerId: activePlayer.id,
+            receiverId: targetPlayer.id,
             transferOffered: transferOfferedIds,   
             transferDemanded: transferDemandedIds, 
             covenants: [...this.proposedCovenants], 
@@ -275,7 +285,8 @@ export const tradeLogic = {
         document.getElementById('trade-review-view').style.display = 'flex';
 
         const p = this.currentProposal;
-        document.getElementById('trade-review-headline').innerText = `🚨 DEAL REVIEW FOR ${p.receiver.icon}`;
+        const receiver = gameState.players.find(pl => pl.id === p.receiverId);
+        document.getElementById('trade-review-headline').innerText = `🚨 DEAL REVIEW FOR ${receiver.icon}`;
 
         const receivingList = document.getElementById('review-receiving-list');
         const givingList = document.getElementById('review-giving-list');
@@ -292,7 +303,7 @@ export const tradeLogic = {
         }
         
         p.covenants.forEach(c => {
-            if (c.beneficiaryId === p.receiver.id) {
+            if (c.beneficiaryId === p.receiverId) {
                 let perkText = `<div class="review-item" style="color:#7c3aed; font-weight:bold;">📜 Covenant on ${c.propertyName}:`;
                 if (c.profitShare > 0) perkText += ` [📊 ${c.profitShare}% Profits]`;
                 if (c.rentFreeTurns > 0) perkText += ` [🎟️ ${c.rentFreeTurns}x Free Visits]`;
@@ -310,7 +321,7 @@ export const tradeLogic = {
         }
 
         p.covenants.forEach(c => {
-            if (c.beneficiaryId === p.proposer.id) {
+            if (c.beneficiaryId === p.proposerId) {
                 let perkText = `<div class="review-item" style="color:#b91c1c; font-weight:bold;">📜 Grant Covenant on ${c.propertyName}:`;
                 if (c.profitShare > 0) perkText += ` [Give ${c.profitShare}% Split]`;
                 if (c.rentFreeTurns > 0) perkText += ` [Give ${c.rentFreeTurns}x Free]`;
@@ -321,81 +332,127 @@ export const tradeLogic = {
 
         if (receivingList.innerHTML === '') receivingList.innerText = 'Nothing';
         if (givingList.innerHTML === '') givingList.innerText = 'Nothing';
+
+        this.setupReviewActionButtons();
+    },
+
+    setupReviewActionButtons() {
+        let btnContainer = document.getElementById('trade-review-actions-container');
+        
+        if (btnContainer) {
+            btnContainer.innerHTML = `
+                <button id="trade-accept-btn" style="background:#10b981; color:#fff; padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Accept</button>
+                <button id="trade-counter-btn" style="background:#f59e0b; color:#fff; padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer; margin: 0 6px;">Counter Deal</button>
+                <button id="trade-decline-btn" style="background:#ef4444; color:#fff; padding:8px 16px; border:none; border-radius:4px; font-weight:bold; cursor:pointer;">Decline</button>
+            `;
+        }
+
+        const acceptBtn = document.getElementById('trade-accept-btn');
+        const counterBtn = document.getElementById('trade-counter-btn');
+        const declineBtn = document.getElementById('trade-decline-btn');
+
+        if (acceptBtn) acceptBtn.onclick = () => this.executeTradeDeal();
+        if (declineBtn) declineBtn.onclick = () => { alert("Deal declined."); this.closePanel(); };
+        if (counterBtn) counterBtn.onclick = () => this.initiateCounterProposal();
+    },
+
+    initiateCounterProposal() {
+        const p = this.currentProposal;
+        if (!p) return;
+
+        const originalProposerIndex = gameState.players.findIndex(pl => pl.id === p.proposerId);
+        const originalReceiverIndex = gameState.players.findIndex(pl => pl.id === p.receiverId);
+        
+        gameState.currentPlayerIndex = originalReceiverIndex;
+
+        document.getElementById('trade-setup-view').style.display = 'flex';
+        document.getElementById('trade-review-view').style.display = 'none';
+
+        const partnerSelect = document.getElementById('trade-target-select');
+        this.populatePartnersList();
+        partnerSelect.value = p.proposerId;
+
+        this.renderAssetSelection();
+
+        p.transferOffered.forEach(id => {
+            const cb = document.querySelector(`.asset-transfer-checkbox[value="${id}"]`);
+            if (cb) cb.checked = true;
+        });
+        p.transferDemanded.forEach(id => {
+            const cb = document.querySelector(`.asset-transfer-checkbox[value="${id}"]`);
+            if (cb) cb.checked = true;
+        });
+
+        document.getElementById('your-trade-cash').value = p.demandedCash;
+        document.getElementById('their-trade-cash').value = p.offeredCash;
+
+        this.proposedCovenants = p.covenants;
+        this.syncCovenantUIList();
+        this.populateContractPropertyDropdown();
+
+        alert(`🔄 Counter-offering! You are now negotiating as Player ${p.receiverId}.`);
     },
 
     executeTradeDeal() {
         const p = this.currentProposal;
-        console.log("=== 🤝 PROCESSING STREAMLINED TRADE TRANSACTION ===");
+        const proposer = gameState.players.find(pl => pl.id === p.proposerId);
+        const receiver = gameState.players.find(pl => pl.id === p.receiverId);
 
-        p.proposer.balance -= p.offeredCash;
-        p.proposer.balance += p.demandedCash;
-        p.receiver.balance += p.offeredCash;
-        p.receiver.balance -= p.demandedCash;
+        proposer.balance -= p.offeredCash;
+        proposer.balance += p.demandedCash;
+        receiver.balance += p.offeredCash;
+        receiver.balance -= p.demandedCash;
 
-        const proposerIndex = gameState.players.findIndex(player => player.id === p.proposer.id);
-        const receiverIndex = gameState.players.findIndex(player => player.id === p.receiver.id);
+        const proposerIndex = gameState.players.findIndex(pl => pl.id === p.proposerId);
+        const receiverIndex = gameState.players.findIndex(pl => pl.id === p.receiverId);
 
-        if (!gameState.contracts) {
-            gameState.contracts = {};
-        }
+        if (!gameState.contracts) gameState.contracts = {};
 
         p.transferDemanded.forEach(id => {
             const spaceIndex = boardData.findIndex(s => s.id === id);
             if (spaceIndex === -1) return;
-            
             gameState.ownership[spaceIndex] = proposerIndex;
             delete gameState.contracts[id]; 
-
-            const spaceEl = document.getElementById(`space-${spaceIndex}`);
-            if (spaceEl) {
-                let flag = spaceEl.querySelector('.owner-flag') || document.createElement('div');
-                flag.className = 'owner-flag';
-                flag.innerText = p.proposer.icon;
-                if (!spaceEl.querySelector('.owner-flag')) spaceEl.appendChild(flag);
-            }
+            this.updateMapFlag(spaceIndex, proposer.icon);
         });
 
         p.transferOffered.forEach(id => {
             const spaceIndex = boardData.findIndex(s => s.id === id);
             if (spaceIndex === -1) return;
-
             gameState.ownership[spaceIndex] = receiverIndex;
             delete gameState.contracts[id]; 
-
-            const spaceEl = document.getElementById(`space-${spaceIndex}`);
-            if (spaceEl) {
-                let flag = spaceEl.querySelector('.owner-flag') || document.createElement('div');
-                flag.className = 'owner-flag';
-                flag.innerText = p.receiver.icon;
-                if (!spaceEl.querySelector('.owner-flag')) spaceEl.appendChild(flag);
-            }
+            this.updateMapFlag(spaceIndex, receiver.icon);
         });
 
-        // 💡 Process covenants with dynamic post-deal ownership targeting
         p.covenants.forEach(c => {
-            const propId = c.propertyId;
+            const spaceIndex = boardData.findIndex(s => s.id === c.propertyId);
+            const finalOwnerIndex = gameState.ownership[spaceIndex];
+            const finalOwnerId = gameState.players[finalOwnerIndex].id;
 
-            gameState.contracts[propId] = {
-                profitSharePartnerId: parseInt(c.partnerId),
+            const partnerId = (finalOwnerId === p.proposerId) ? p.receiverId : p.proposerId;
+
+            gameState.contracts[c.propertyId] = {
+                profitSharePartnerId: parseInt(partnerId),
                 profitSharePercentage: parseInt(c.profitShare) || 0,
                 rentFreeAllowances: {}
             };
-
             if (c.rentFreeTurns > 0) {
-                const beneficiaryKey = String(c.beneficiaryId);
-                gameState.contracts[propId].rentFreeAllowances[beneficiaryKey] = parseInt(c.rentFreeTurns);
+                gameState.contracts[c.propertyId].rentFreeAllowances[String(c.beneficiaryId)] = parseInt(c.rentFreeTurns);
             }
-            console.log(`📜 Multi-Covenant registered on Property ID ${propId}:`, gameState.contracts[propId]);
         });
 
-        alert("🤝 Custom multi-property trade deal settled completely!");
-        
-        if (typeof this.updateHUDDisplay === 'function') {
-            this.updateHUDDisplay();
-        } else if (bankLogic && typeof bankLogic.updateHUDDisplay === 'function') {
-            bankLogic.updateHUDDisplay();
-        }
-        
+        alert("🤝 Deal accepted and executed completely!");
+        if (bankLogic && typeof bankLogic.updateHUDDisplay === 'function') bankLogic.updateHUDDisplay();
         this.closePanel();
+    },
+
+    updateMapFlag(spaceIndex, icon) {
+        const spaceEl = document.getElementById(`space-${spaceIndex}`);
+        if (spaceEl) {
+            let flag = spaceEl.querySelector('.owner-flag') || document.createElement('div');
+            flag.className = 'owner-flag';
+            flag.innerText = icon;
+            if (!spaceEl.querySelector('.owner-flag')) spaceEl.appendChild(flag);
+        }
     }
 };

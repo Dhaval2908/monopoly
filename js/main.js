@@ -125,25 +125,18 @@ function setupGlobalEvents() {
         closeRulesBtn.onclick = closeRulesWindow;
     }
 
+    // ---- Clean Trade Overlay Wireups ----
     const closeTradeBtn = document.getElementById('close-trade-btn');
     if (closeTradeBtn) closeTradeBtn.onclick = () => tradeLogic.closePanel();
 
     const submitProposalBtn = document.getElementById('submit-trade-proposal-btn');
     if (submitProposalBtn) submitProposalBtn.onclick = () => tradeLogic.processProposal();
 
-    const acceptTradeBtn = document.getElementById('accept-trade-btn');
-    if (acceptTradeBtn) acceptTradeBtn.onclick = () => tradeLogic.executeTradeDeal();
+    // 💡 REMOVED: Handlers for accept-trade-btn and decline-trade-btn have been removed from here.
+    // They are now entirely managed dynamically by tradeLogic.setupReviewActionButtons() inside your wrapper.
 
-    const declineTradeBtn = document.getElementById('decline-trade-btn');
-    if (declineTradeBtn) {
-        declineTradeBtn.onclick = () => {
-            alert("❌ Trade proposal declined by business partner.");
-            tradeLogic.closePanel();
-        };
-    }
     // Expose trade open context explicitly to match your index.html launcher button assignment
     window.openTradePanel = () => tradeLogic.openPanel();
-
 }
 
 function closeRulesWindow() {
@@ -210,40 +203,29 @@ export function handleDiceRoll(d1, d2) {
                 if (bankLogic && typeof bankLogic.endTurnSequence === 'function') bankLogic.endTurnSequence();
             }
         }
-        return; // Exit out early since they are in jail
+        return; 
     }
 
     // ==========================================
     // 2. NORMAL TURN LOGIC (NOT JAILED)
     // ==========================================
-    
-    // Stack current roll total into our global game state step counter
     gameState.accumulatedSteps += rollTotal;
 
     if (isDouble) {
-        // Track consecutive identical double combinations
         if (gameState.lastDoubleValue === null) {
-            // First double of this chain
             gameState.consecutiveDoubles = 1;
             gameState.lastDoubleValue = rollTotal;
         } else if (gameState.lastDoubleValue === rollTotal) {
-            // It matches the previous double! Increment streak count
             gameState.consecutiveDoubles += 1;
         } else {
-            // It's a double, but a different face value (e.g., 2&2 after 3&3)
-            // Reset streak back to 1, but save this new number!
             gameState.consecutiveDoubles = 1;
             gameState.lastDoubleValue = rollTotal;
         }
         
-        // This will print to your console now!
         console.log(`🎯 Double Detected! Combo Total: ${rollTotal} (${d1}&${d2}), Streak Count: ${gameState.consecutiveDoubles}`);
 
-        // Trigger jail instantly when they hit exactly 3 identical combos
         if (gameState.consecutiveDoubles >= 3) {
             alert(`🚓 Triple ${d1}s rolled consecutively! Speeding violation! Go directly to Jail.`);
-            
-            // Wipe everything clean
             gameState.consecutiveDoubles = 0;
             gameState.lastDoubleValue = null;
             gameState.accumulatedSteps = 0; 
@@ -255,18 +237,15 @@ export function handleDiceRoll(d1, d2) {
         }
 
         alert(`🎲 Double Rolled (${d1}&${d2})! Stacked Total: ${gameState.accumulatedSteps} spaces. Roll your BONUS dice!`);
-        return; // Return early so they can roll again without moving yet
+        return; 
     }
 
-    // If we reach this point, they rolled a normal pair (or completed their streak sequence)
     executeStackedMove();
 }
 
-// Internal helper to trigger movement after all dice sequences finish stacking
 function executeStackedMove() {
     const totalMoveAmount = gameState.accumulatedSteps;
     
-    // Clear state counters before executing movement animations to prevent racing loops
     gameState.consecutiveDoubles = 0;
     gameState.accumulatedSteps = 0; 
 

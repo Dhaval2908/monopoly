@@ -142,10 +142,9 @@
                         </div>
                     </div>
                 </div>
-                <div class="trade-decision-actions">
-                    <button id="accept-trade-btn" class="trade-success-btn">Accept Deal</button>
-                    <button id="decline-trade-btn" class="trade-danger-btn">Decline Deal</button>
-                </div>
+                
+                <!-- 💡 FIXED: Container targeted by tradeLogic.js to cleanly inject Accept, Counter, and Decline buttons -->
+                <div id="trade-review-actions-container" class="trade-decision-actions" style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;"></div>
             </div>
         </div>
     </div>
